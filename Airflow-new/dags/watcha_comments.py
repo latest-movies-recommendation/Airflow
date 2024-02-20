@@ -1,35 +1,34 @@
+import logging
+import time
+from datetime import datetime, timedelta
+from io import StringIO
+
+import boto3
+import pandas as pd
 from airflow import DAG
+from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
-from airflow.hooks.S3_hook import S3Hook
-
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
-
-from datetime import datetime, timedelta
-import time
-import pandas as pd
-import boto3
-import logging
-from io import StringIO
+from selenium.webdriver.common.by import By
 
 
 def get_titles(ti, **kwargs):
-    s3_hook = S3Hook(aws_conn_id='aws_conn')
-    s3_key = 'kofic/daily-box-office/20240216.csv'
+    s3_hook = S3Hook(aws_conn_id="aws_conn")
+    s3_key = "kofic/daily-box-office/20240216.csv"
     try:
-        obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get('s3_bucket_name'))
+        obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
         if obj:
             # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
-            csv_data = obj.get()['Body'].read().decode('utf-8')
+            csv_data = obj.get()["Body"].read().decode("utf-8")
             df = pd.read_csv(StringIO(csv_data))
             logging.info("CSV file downloaded and converted to DataFrame successfully.")
-            if 'movieNm' not in df.columns:
+            if "movieNm" not in df.columns:
                 raise ValueError("movieNm Column does not exist in the dataframe.")
             # 영진위 1-10위 영화
-            movies = df['movieNm'].tolist()[-10:]
-            ti.xcom_push(key='movies_title', value=movies)
+            movies = df["movieNm"].tolist()[-10:]
+            ti.xcom_push(key="movies_title", value=movies)
             logging.info(movies)
             return movies
         else:
@@ -44,7 +43,9 @@ def access_watcha(title, **kwargs):
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_experimental_option("detach", True)
 
-        driver = webdriver.Chrome('/opt/homebrew/bin/chromedriver', options=chrome_options)
+        driver = webdriver.Chrome(
+            "/opt/homebrew/bin/chromedriver", options=chrome_options
+        )
         driver.set_page_load_timeout(30)
 
         url = f"https://pedia.watcha.com/ko-KR/search?query={title}"
@@ -57,11 +58,14 @@ def access_watcha(title, **kwargs):
     # df = comments(title, driver)
     # print(df)
 
+
 def actual_access_watcha_logic(title, **kwargs):
     try:
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_experimental_option("detach", True)
-        driver = webdriver.Chrome('/opt/homebrew/bin/chromedriver', options=chrome_options)
+        driver = webdriver.Chrome(
+            "/opt/homebrew/bin/chromedriver", options=chrome_options
+        )
         driver.set_page_load_timeout(30)
         url = f"https://pedia.watcha.com/ko-KR/search?query={title}"
         driver.get(url)
@@ -74,8 +78,8 @@ def actual_access_watcha_logic(title, **kwargs):
 
 
 def access_watcha_wrapper(**kwargs):
-    ti = kwargs['ti']
-    titles = ti.xcom_pull(task_ids='get_titles', key='movies_title')
+    ti = kwargs["ti"]
+    titles = ti.xcom_pull(task_ids="get_titles", key="movies_title")
     if titles is not None:
         for title in titles:
             actual_access_watcha_logic(title, **kwargs)
@@ -159,29 +163,26 @@ def access_watcha_wrapper(**kwargs):
 
 
 dag = DAG(
-    dag_id='watcha_comments',
+    dag_id="watcha_comments",
     start_date=datetime(2024, 2, 14),
-    schedule='0 9 * * *',
+    schedule="0 9 * * *",
     catchup=False,
     max_active_runs=1,
     default_args={
-        'retries': 1,
-        'retry_delay': timedelta(minutes=3),
-    }
+        "retries": 1,
+        "retry_delay": timedelta(minutes=3),
+    },
 )
 
 get_titles = PythonOperator(
-    task_id='get_titles',
-    python_callable=get_titles,
-    provide_context=True,
-    dag=dag
+    task_id="get_titles", python_callable=get_titles, provide_context=True, dag=dag
 )
 
 access_watcha = PythonOperator(
-    task_id='access_watcha',
+    task_id="access_watcha",
     python_callable=access_watcha_wrapper,
     provide_context=True,
-    dag=dag
+    dag=dag,
 )
 
 # get_comments = PythonOperator(
