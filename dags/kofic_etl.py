@@ -1,46 +1,60 @@
+import json
+from datetime import datetime, timedelta
+from io import StringIO
+
+import pandas as pd
+import requests
 from airflow import DAG
+from airflow.decorators import dag, task
+from airflow.models import Variable
+from airflow.operators.python import get_current_context
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
-from airflow.decorators import dag, task
-from airflow.models import Variable
-from datetime import datetime
-import requests
-from io import StringIO
-import pandas as pd
-from datetime import timedelta, datetime
-import json
-from airflow.operators.python import get_current_context
-
 
 default_args = {
-    'owner': 'yein',
-    'start_date': datetime(2003, 11, 11),
-    'retries': 0,
-    'retry_delay': timedelta(minutes=10),
+    "owner": "yein",
+    "start_date": datetime(2003, 11, 11),
+    "retries": 0,
+    "retry_delay": timedelta(minutes=10),
 }
 
-@dag(dag_id='kofic_etl', default_args=default_args, schedule_interval='0 1 * * *', catchup=False)
+
+@dag(
+    dag_id="kofic_etl",
+    default_args=default_args,
+    schedule_interval="0 1 * * *",
+    catchup=False,
+)
 def kofic_etl():
 
     @task
     def get_daily_box_office():
-        api_key = Variable.get('kofic_key')
+        api_key = Variable.get("kofic_key")
 
         context = get_current_context()
-        execution_date = context['ds']
-        target_date = datetime.strptime(execution_date, '%Y-%m-%d').strftime('%Y%m%d')
-        base_url = 'http://www.kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDailyBoxOfficeList.json'
-        combinations = [("Y", "K"), ("Y", "F"), ("N", "K"), ("N", "F"), ("Y", ""), ("N", ""), ("", "K"),
-                        ("", "F"), ("", "")]
+        execution_date = context["ds"]
+        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        base_url = "http://www.kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDailyBoxOfficeList.json"
+        combinations = [
+            ("Y", "K"),
+            ("Y", "F"),
+            ("N", "K"),
+            ("N", "F"),
+            ("Y", ""),
+            ("N", ""),
+            ("", "K"),
+            ("", "F"),
+            ("", ""),
+        ]
 
         rows = []
         for multiMovieYn, repNationCd in combinations:
             params = {
-                'key': api_key,
-                'targetDt': target_date,
-                'multiMovieYn': multiMovieYn,
-                'repNationCd': repNationCd
+                "key": api_key,
+                "targetDt": target_date,
+                "multiMovieYn": multiMovieYn,
+                "repNationCd": repNationCd,
             }
             response = requests.get(base_url, params=params)
             if response.status_code == 200:
@@ -70,32 +84,53 @@ def kofic_etl():
                         movie.get("audiChange", ""),
                         movie.get("audiAcc", ""),
                         movie.get("scrnCnt", ""),
-                        movie.get("showCnt", "")
+                        movie.get("showCnt", ""),
                     ]
                     rows.append(row)
 
-        columns = ["boxofficeType", "showRange", "multiMovieYn", "repNationCd", "rnum", "rank", "rankInten",
-                   "rankOldAndNew", "movieCd", "movieNm", "openDt", "salesAmt", "salesShare", "salesInten", "salesChange",
-                   "salesAcc", "audiCnt", "audiInten", "audiChange", "audiAcc", "scrnCnt", "showCnt"]
+        columns = [
+            "boxofficeType",
+            "showRange",
+            "multiMovieYn",
+            "repNationCd",
+            "rnum",
+            "rank",
+            "rankInten",
+            "rankOldAndNew",
+            "movieCd",
+            "movieNm",
+            "openDt",
+            "salesAmt",
+            "salesShare",
+            "salesInten",
+            "salesChange",
+            "salesAcc",
+            "audiCnt",
+            "audiInten",
+            "audiChange",
+            "audiAcc",
+            "scrnCnt",
+            "showCnt",
+        ]
         df = pd.DataFrame(rows, columns=columns)
 
         csv_buffer = StringIO()
         df.to_csv(csv_buffer, index=False)
         csv_data = csv_buffer.getvalue()
 
-        bucket_name = Variable.get('s3_bucket_name')
-        s3_hook = S3Hook(aws_conn_id='aws_conn')
+        bucket_name = Variable.get("s3_bucket_name")
+        s3_hook = S3Hook(aws_conn_id="aws_conn")
         s3_hook.load_string(
             string_data=csv_data,
-            key=f'kofic/daily-box-office/{target_date}.csv',
+            key=f"kofic/daily-box-office/{target_date}.csv",
             bucket_name=bucket_name,
-            replace=True
+            replace=True,
         )
 
-    database_name = Variable.get('athena_database_name')
+    database_name = Variable.get("athena_database_name")
 
     run_athena_query = AthenaOperator(
-        task_id='store_movie_codes_to_fetch',
+        task_id="store_movie_codes_to_fetch",
         query=f"""
             SELECT DISTINCT(dbo.moviecd), dbo.movienm
             FROM {database_name}.daily_box_office dbo
@@ -104,20 +139,21 @@ def kofic_etl():
                 AND dbo.moviecd IS NOT NULL;
             """,
         database=database_name,
-        output_location=f's3://{Variable.get("s3_bucket_name")}/kofic/movies-to-fetch/' + '{{ ds_nodash }}',
-        aws_conn_id='aws_conn',
+        output_location=f's3://{Variable.get("s3_bucket_name")}/kofic/movies-to-fetch/'
+        + "{{ ds_nodash }}",
+        aws_conn_id="aws_conn",
     )
 
     @task
     def load_movie_codes_to_fetch():
-        s3_hook = S3Hook(aws_conn_id='aws_conn')
+        s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
 
         context = get_current_context()
-        execution_date = context['ds']
-        target_date = datetime.strptime(execution_date, '%Y-%m-%d').strftime('%Y%m%d')
+        execution_date = context["ds"]
+        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
 
-        prefix = f'kofic/movies-to-fetch/{target_date}/'
+        prefix = f"kofic/movies-to-fetch/{target_date}/"
 
         keys = s3_hook.list_keys(bucket_name=bucket_name, prefix=prefix)
         if not keys:
@@ -128,35 +164,35 @@ def kofic_etl():
             if key.split(".")[-1] == "csv":
                 content = s3_hook.read_key(key, bucket_name=bucket_name)
                 df = pd.read_csv(StringIO(content))
-                movie_cds.extend(df['moviecd'].tolist())
+                movie_cds.extend(df["moviecd"].tolist())
 
         return movie_cds
 
     @task
     def get_movie(movie_cds):
-        api_key = Variable.get('kofic_key')
+        api_key = Variable.get("kofic_key")
 
         context = get_current_context()
-        execution_date = context['ds']
-        target_date = datetime.strptime(execution_date, '%Y-%m-%d').strftime('%Y%m%d')
+        execution_date = context["ds"]
+        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
 
         for movie_cd in movie_cds:
             response = requests.get(
                 f"http://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieInfo.json",
-                params={"key": api_key, "movieCd": movie_cd}
+                params={"key": api_key, "movieCd": movie_cd},
             )
 
-            movie_info = response.json()['movieInfoResult']['movieInfo']
+            movie_info = response.json()["movieInfoResult"]["movieInfo"]
 
             print(movie_info)
 
             bucket_name = Variable.get("s3_bucket_name")
-            s3_hook = S3Hook(aws_conn_id='aws_conn')
+            s3_hook = S3Hook(aws_conn_id="aws_conn")
             s3_hook.load_string(
                 string_data=json.dumps(movie_info, ensure_ascii=False),
-                key=f'kofic/movie/{target_date}/{movie_cd}.json',
+                key=f"kofic/movie/{target_date}/{movie_cd}.json",
                 bucket_name=bucket_name,
-                replace=True
+                replace=True,
             )
 
     daily_box_office_data = get_daily_box_office()
