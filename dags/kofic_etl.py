@@ -4,11 +4,9 @@ from io import StringIO
 
 import pandas as pd
 import requests
-from airflow import DAG
 from airflow.decorators import dag, task
 from airflow.models import Variable
 from airflow.operators.python import get_current_context
-from airflow.operators.python_operator import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
