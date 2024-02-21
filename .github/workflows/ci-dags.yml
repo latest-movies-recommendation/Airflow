@@ -1,11 +1,6 @@
 name: CI for DAGs
 
 on:
-  push:
-    paths:
-      - 'dags/**'
-      - 'Airflow-new/dags/**'
-    branches: [ "main", "develop" ]
   pull_request:
     paths:
       - 'dags/**'
