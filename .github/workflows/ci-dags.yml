@@ -1,10 +1,6 @@
 name: CI for DAGs
 
 on:
-  push:
-    paths:
-      - 'dags/**'
-    branches: [ "main", "develop" ]
   pull_request:
     paths:
       - 'dags/**'
