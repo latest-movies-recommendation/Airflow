@@ -25,6 +25,7 @@ import logging
 # 이미지 경로를 기반으로 서버에 요청하여 이미지 파일을 저장하게 하는 라이브러리
 from urllib.request import urlopen
 
+
 # s3에서 파일 리스트 불러오기 =>리뷰 파일/영화 정보 파일이 있는지 확인 위함
 def read_s3_filelist():
     s3 = S3Hook(aws_conn_id='aws_conn')
