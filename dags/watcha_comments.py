@@ -24,7 +24,8 @@ def today_date():
 
 def get_daily_box_office(ti, **kwargs):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
-    s3_key = f"kofic/daily-box-office/{today_date()}.csv"
+    # s3_key = f"kofic/daily-box-office/{today_date()}.csv"
+    s3_key = "kofic/daily-box-office/20240219.csv"
     try:
         obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
         if obj:
@@ -60,7 +61,7 @@ def scraping_watcha(**kwargs):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     s = Service("/usr/bin/chromedriver")
-    driver = webdriver.Chrome(service=s, options=options)
+    driver = webdriver.Chrome(options=options)
     if titles is not None:
         for title in titles:
             logging.info(f"{title} 리뷰 추출을 시작합니다.")
