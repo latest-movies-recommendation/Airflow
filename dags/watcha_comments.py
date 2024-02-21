@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from datetime import datetime, timedelta
 from io import StringIO
 
@@ -61,7 +60,7 @@ def scraping_watcha(**kwargs):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     s = Service("/usr/bin/chromedriver")
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(service=s, options=options)
     if titles is not None:
         for title in titles:
             logging.info(f"{title} 리뷰 추출을 시작합니다.")
@@ -120,50 +119,50 @@ def scraping_watcha(**kwargs):
 
 
 # 전체 페이지를 스크롤
-def page_scrolling(driver):
-    scroll_location = driver.execute_script("return document.body.scrollHeight")
-    cnt = 0
-    try:
-        while True:
-            cnt += 1
-            # 현재 스크롤의 가장 아래로 내림
-            driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
-
-            # 전체 스크롤이 늘어날 때까지 대기
-            time.sleep(10)
-
-            # 늘어난 스크롤 높이
-            scroll_height = driver.execute_script("return document.body.scrollHeight")
-
-            # 늘어난 스크롤 위치와 이동 전 위치 같으면(더 이상 스크롤이 늘어나지 않으면) 종료
-            if scroll_location == scroll_height:
-                break
-
-            # 같지 않으면 스크롤 위치 값을 수정하여 같아질 때까지 반복
-            else:
-                # 스크롤 위치값을 수정
-                scroll_location = driver.execute_script(
-                    "return document.body.scrollHeight"
-                )
-            logging.info(f"스크롤링 {cnt}회")
-    except Exception as e:
-        logging.info(f"스크롤링 실패: {e}")
-
-
-# 약 200개의 리뷰가 있는 위치까지 스크롤링
-# def page_scrolling(driver, target_height=73122):
+# def page_scrolling(driver):
+#     scroll_location = driver.execute_script("return document.body.scrollHeight")
 #     cnt = 0
 #     try:
 #         while True:
 #             cnt += 1
-#             driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
-#             driver.implicitly_wait(2)
+#             # 현재 스크롤의 가장 아래로 내림
+#             driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
+#
+#             # 전체 스크롤이 늘어날 때까지 대기
+#             time.sleep(10)
+#
+#             # 늘어난 스크롤 높이
 #             scroll_height = driver.execute_script("return document.body.scrollHeight")
-#             if scroll_height >= target_height:
+#
+#             # 늘어난 스크롤 위치와 이동 전 위치 같으면(더 이상 스크롤이 늘어나지 않으면) 종료
+#             if scroll_location == scroll_height:
 #                 break
+#
+#             # 같지 않으면 스크롤 위치 값을 수정하여 같아질 때까지 반복
+#             else:
+#                 # 스크롤 위치값을 수정
+#                 scroll_location = driver.execute_script(
+#                     "return document.body.scrollHeight"
+#                 )
 #             logging.info(f"스크롤링 {cnt}회")
 #     except Exception as e:
 #         logging.info(f"스크롤링 실패: {e}")
+
+
+# 약 200개의 리뷰가 있는 위치까지 스크롤링
+def page_scrolling(driver, target_height=73122):
+    cnt = 0
+    try:
+        while True:
+            cnt += 1
+            driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
+            driver.implicitly_wait(2)
+            scroll_height = driver.execute_script("return document.body.scrollHeight")
+            if scroll_height >= target_height:
+                break
+            logging.info(f"스크롤링 {cnt}회")
+    except Exception as e:
+        logging.info(f"스크롤링 실패: {e}")
 
 
 # def scrolling(driver, target_height=73122):
