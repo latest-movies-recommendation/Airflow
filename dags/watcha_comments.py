@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from datetime import datetime, timedelta
 from io import StringIO
 
@@ -23,7 +22,8 @@ def today_date():
 
 def get_daily_box_office(ti, **kwargs):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
-    s3_key = f"kofic/daily-box-office/{today_date()}.csv"
+    # s3_key = f"kofic/daily-box-office/{today_date()}.csv"
+    s3_key = "kofic/daily-box-office/20240219.csv"
     try:
         obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
         if obj:
@@ -114,7 +114,7 @@ def scraping_watcha(**kwargs):
                 df = pd.DataFrame(data, columns=["id", "score", "like", "comment"])
 
                 # 수집한 날짜 컬럼 추가
-                collected_date = datetime.now()
+                collected_date = datetime.now().date()
                 df["collected_date"] = collected_date
 
                 logging.info(df)
@@ -129,34 +129,58 @@ def scraping_watcha(**kwargs):
 
 
 # 전체 페이지를 스크롤
-def page_scrolling(driver):
-    scroll_location = driver.execute_script("return document.body.scrollHeight")
+# def page_scrolling(driver):
+#     scroll_location = driver.execute_script("return document.body.scrollHeight")
+#     cnt = 0
+#     try:
+#         while True:
+#             cnt += 1
+#             # 현재 스크롤의 가장 아래로 내림
+#             driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
+#
+#             # 전체 스크롤이 늘어날 때까지 대기
+#             driver.implicitly_wait(2)
+#
+#             # 늘어난 스크롤 높이
+#             scroll_height = driver.execute_script("return document.body.scrollHeight")
+#
+#             # 늘어난 스크롤 위치와 이동 전 위치 같으면(더 이상 스크롤이 늘어나지 않으면) 종료
+#             if scroll_location == scroll_height:
+#                 break
+#
+#             # 같지 않으면 스크롤 위치 값을 수정하여 같아질 때까지 반복
+#             else:
+#                 # 스크롤 위치값을 수정
+#                 scroll_location = driver.execute_script(
+#                     "return document.body.scrollHeight"
+#                 )
+#             logging.info(f"스크롤링 {cnt}회")
+#     except Exception as e:
+#         logging.info(f"스크롤링 실패: {e}")
+
+
+# 약 200개의 리뷰가 있는 위치까지 스크롤링
+def page_scrolling(driver, target_height=73122):
     cnt = 0
     try:
         while True:
             cnt += 1
-            # 현재 스크롤의 가장 아래로 내림
-            driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
-
-            # 전체 스크롤이 늘어날 때까지 대기
-            time.sleep(10)
-
-            # 늘어난 스크롤 높이
+            driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
+            driver.implicitly_wait(2)
             scroll_height = driver.execute_script("return document.body.scrollHeight")
-
-            # 늘어난 스크롤 위치와 이동 전 위치 같으면(더 이상 스크롤이 늘어나지 않으면) 종료
-            if scroll_location == scroll_height:
+            if scroll_height >= target_height:
                 break
-
-            # 같지 않으면 스크롤 위치 값을 수정하여 같아질 때까지 반복
-            else:
-                # 스크롤 위치값을 수정
-                scroll_location = driver.execute_script(
-                    "return document.body.scrollHeight"
-                )
             logging.info(f"스크롤링 {cnt}회")
     except Exception as e:
         logging.info(f"스크롤링 실패: {e}")
+
+
+# DataFrame을 CSV 문자열로 변환
+def get_csv_string(df):
+    csv_buffer = StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_string = csv_buffer.getvalue()
+    return csv_string
 
 
 def upload_to_s3(title, df):
@@ -173,19 +197,13 @@ def upload_to_s3(title, df):
         logging.info(f"존재하는 파일이 있습니다. :{file_name}")
 
         merged_df = pd.concat([existing_df, df], ignore_index=True)
-
         # 중복되지 않는 데이터만 선택
         new_data = merged_df.drop_duplicates(keep=False)
-
-        # DataFrame을 CSV 문자열로 변환
-        csv_buffer = StringIO()
-        new_data.to_csv(csv_buffer, index=False)
-        csv_string = csv_buffer.getvalue()
 
         # S3에 업로드
         logging.info(f"Uploading {file_name} to s3")
         s3_hook.load_string(
-            string_data=csv_string,
+            string_data=get_csv_string(new_data),
             key=key,
             bucket_name=Variable.get("s3_bucket_name"),
             replace=True,
@@ -195,15 +213,12 @@ def upload_to_s3(title, df):
     except Exception as e:
         # 기존 파일이 없는 경우
         logging.info(f"존재하는 {file_name} 파일이 없습니다. 새로 업로드합니다.{e}")
-        # DataFrame을 CSV 문자열로 변환
-        csv_buffer = StringIO()
-        df.to_csv(csv_buffer, index=False)
-        csv_string = csv_buffer.getvalue()
+
         # S3에 업로드
         try:
             logging.info(f"Uploading {file_name} to S3")
             s3_hook.load_string(
-                string_data=csv_string,
+                string_data=get_csv_string(df),
                 key=key,
                 bucket_name=Variable.get("s3_bucket_name"),
                 replace=True,
@@ -236,7 +251,7 @@ scraping_watcha = PythonOperator(
     python_callable=scraping_watcha,
     provide_context=True,
     dag=dag,
-    execution_timeout=timedelta(minutes=15),  # 태스크의 최대 실행 시간을 15분으로 설정
+    execution_timeout=timedelta(minutes=30),  # 태스크의 최대 실행 시간을 15분으로 설정
 )
 
 
