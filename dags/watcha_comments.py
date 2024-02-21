@@ -39,7 +39,7 @@ def get_daily_box_office(ti, **kwargs):
             # 영진위 1-10위 영화
             movies = df["movieNm"].tolist()[-10:]
             ti.xcom_push(key="movies_title", value=movies)
-            logging.info(movies)
+            logging.info(f"{today_date()}자 박스오피스 순위: {movies}")
             return movies
         else:
             logging.info(f"S3에 {today_date()}자 해당 파일이 없습니다.")
@@ -48,7 +48,12 @@ def get_daily_box_office(ti, **kwargs):
         logging.info(f"S3로부터 데이터를 로드하는 데 실패했습니다.: {e}")
 
 
-def setting_driver():
+def scraping_watcha(**kwargs):
+    # ti = kwargs['ti']
+    # titles = ti.xcom_pull(task_ids='get_daily_box_office', key='movies_title')
+    titles = ["시시콜콜한 이야기", "애프터썬"]
+    logging.info(titles)
+
     options = Options()
     options.add_argument("--headless")
     options.add_argument("window-size=1200x600")
@@ -56,16 +61,6 @@ def setting_driver():
     options.add_argument("--disable-dev-shm-usage")
     s = Service("/usr/bin/chromedriver")
     driver = webdriver.Chrome(service=s, options=options)
-    return driver
-
-
-def scraping_watcha(**kwargs):
-    # ti = kwargs['ti']
-    # titles = ti.xcom_pull(task_ids='get_daily_box_office', key='movies_title')
-    titles = ["시시콜콜한 이야기", "애프터썬"]
-    logging.info(titles)
-
-    driver = setting_driver()
     if titles is not None:
         for title in titles:
             logging.info(f"{title} 리뷰 추출을 시작합니다.")
@@ -152,6 +147,80 @@ def page_scrolling(driver):
             logging.info(f"스크롤링 {cnt}회")
     except Exception as e:
         logging.info(f"스크롤링 실패: {e}")
+
+
+# 약 200개의 리뷰가 있는 위치까지 스크롤링
+# def page_scrolling(driver, target_height=73122):
+#     cnt = 0
+#     try:
+#         while True:
+#             cnt += 1
+#             driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
+#             driver.implicitly_wait(2)
+#             scroll_height = driver.execute_script("return document.body.scrollHeight")
+#             if scroll_height >= target_height:
+#                 break
+#             logging.info(f"스크롤링 {cnt}회")
+#     except Exception as e:
+#         logging.info(f"스크롤링 실패: {e}")
+
+
+# def scrolling(driver, target_height=73122):
+#     while True:
+#         driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
+#         time.sleep(2)
+#         scroll_height = driver.execute_script("return document.body.scrollHeight")
+#         if scroll_height >= target_height:
+#             break
+
+
+# def access_watcha_wrapper(**kwargs):
+#     ti = kwargs['ti']
+#     titles = ti.xcom_pull(task_ids='get_titles', key='movies_title')
+#     logging.info(titles)
+#     if titles is not None:
+#         for title in titles:
+#             logging.info(f"{title} 리뷰 추출을 시작합니다.")
+#             df = access_watcha(title, **kwargs)
+#             upload_to_s3(title, df)
+#     else:
+#         logging.info("No titles were retrieved.")
+
+
+# def get_comments(driver):
+#     a = driver.find_element(By.CLASS_NAME, "e1ic68ft4")
+#     link = a.get_attribute("href") + "/comments?order=recent"
+#     driver.get(link)
+#     driver.implicitly_wait(5)
+#     logging.info("스크롤링을 시작합니다.")
+#     page_scrolling(driver)
+#     driver.implicitly_wait(5)
+#     logging.info("스크롤링을 성공했습니다.")
+#
+#     reviews = driver.find_elements(By.CLASS_NAME, "egj9y8a4")
+#     data = []
+#
+#     # 상위 200개의 리뷰만 가져오기
+#     for index, review in enumerate(reviews):
+#         if index >= 200:
+#             break
+#
+#         id = review.find_element(By.CLASS_NAME, "eovgsd00").text
+#         like = review.find_element(By.TAG_NAME, "em").text
+#         try:
+#             score_element = review.find_element(By.CLASS_NAME, "egj9y8a0")
+#             score = score_element.text if score_element.text != "보고싶어요" else None
+#         except NoSuchElementException:
+#             score = None
+#
+#         comment = review.find_element(By.CLASS_NAME, "e1hvy88212").text.replace("\n", " ").replace('\"', "")
+#
+#         # 각 리뷰의 정보를 리스트에 추가합니다.
+#         data.append([id, score, like, comment])
+#
+#     # 데이터 리스트를 DataFrame으로 변환합니다.
+#     df = pd.DataFrame(data, columns=['id', 'score', 'like', 'comment'])
+#     return df
 
 
 def upload_to_s3(title, df):
