@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta
 from io import StringIO
 
@@ -116,17 +117,21 @@ def daily_box_office_elt():
         movie_cds = []
         for key in keys:
             if key.split(".")[-1] == "csv":
-                content = s3_hook.read_key(key, bucket_name=bucket_name)
+                content = s3_hook.read_key(key=key, bucket_name=bucket_name)
                 df = pd.read_csv(StringIO(content))
                 movie_cds.extend(df["moviecd"].tolist())
 
-        prefix = "kofic/movie"
         combined_df = pd.DataFrame()
         for movie_cd in movie_cds:
-            json_content = s3_hook.read_key(prefix + f"/{movie_cd}.json", bucket_name)
-            json_data = json.loads(json_content)
-            df = pd.json_normalize(json_data)
-            combined_df = pd.concat([combined_df, df], ignore_index=True)
+            try:
+                key = f"kofic/movie/{target_date}/{movie_cd}.json"
+                json_content = s3_hook.read_key(key=key, bucket_name=bucket_name)
+                json_data = json.loads(json_content)
+                df = pd.json_normalize(json_data)
+                logging.info(df)
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+            except Exception as e:
+                logging.info(f"{movie_cd}: {e}")
 
         column_mapping = {
             "movieCd": "code",
@@ -139,10 +144,17 @@ def daily_box_office_elt():
         }
         combined_df.rename(columns=column_mapping, inplace=True)
 
+        # 정수형 데이터 변환 및 유효하지 않은 값 대체
+        for column in ["show_time", "production_year"]:
+            combined_df[column] = (
+                pd.to_numeric(combined_df[column], errors="coerce")
+                .fillna(0)
+                .astype(int)
+            )
+
         combined_df["open_date"] = pd.to_datetime(
             combined_df["open_date"], format="%Y%m%d", errors="coerce"
         )
-
         selected_columns = [
             "code",
             "korean_name",
@@ -153,16 +165,13 @@ def daily_box_office_elt():
             "open_date",
         ]
         combined_df = combined_df[selected_columns]
-
         postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
         conn = postgres_hook.get_conn()
         cursor = conn.cursor()
-
         engine = create_engine(postgres_hook.get_uri(), echo=False)
         combined_df.to_sql(
             "movie", con=engine, if_exists="append", index=False, method="multi"
         )
-
         cursor.close()
         conn.close()
 
