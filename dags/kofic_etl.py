@@ -176,7 +176,7 @@ def kofic_etl():
 
         for movie_cd in movie_cds:
             response = requests.get(
-                f"http://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieInfo.json",
+                "http://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieInfo.json",
                 params={"key": api_key, "movieCd": movie_cd},
             )
 
