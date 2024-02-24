@@ -80,7 +80,7 @@ def scraping_watcha(**kwargs):
 
                 page_scrolling(driver)
                 driver.implicitly_wait(2)
-                logging.info(f"{title}스크롤링을 마쳤습니다.")
+                logging.info(f"{title}의 스크롤링을 마쳤습니다.")
 
                 reviews = driver.find_elements(By.CLASS_NAME, "egj9y8a4")
                 data = []
@@ -90,7 +90,7 @@ def scraping_watcha(**kwargs):
                         break
 
                     id = review.find_element(By.CLASS_NAME, "eovgsd00").text
-                    like = review.find_element(By.TAG_NAME, "em").text
+                    likes = review.find_element(By.TAG_NAME, "em").text
                     try:
                         score_element = review.find_element(By.CLASS_NAME, "egj9y8a0")
                         score = (
@@ -107,9 +107,9 @@ def scraping_watcha(**kwargs):
                         .replace('"', "")
                     )
                     # 각 리뷰의 정보를 data 리스트에 추가합니다.
-                    data.append([id, score, like, comment])
+                    data.append([id, score, likes, comment])
 
-                df = pd.DataFrame(data, columns=["id", "score", "like", "comment"])
+                df = pd.DataFrame(data, columns=["id", "score", "likes", "comment"])
 
                 # 영화 제목 컬럼 추가
                 df["movie_name"] = title
@@ -120,7 +120,7 @@ def scraping_watcha(**kwargs):
 
                 # 컬럼 순서 재정렬
                 df = df[
-                    ["id", "movie_name", "collected_date", "score", "like", "comment"]
+                    ["id", "movie_name", "collected_date", "score", "likes", "comment"]
                 ]
                 logging.info(df)
 
