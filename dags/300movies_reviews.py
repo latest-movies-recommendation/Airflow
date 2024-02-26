@@ -139,9 +139,7 @@ def naver_review_crawling(**kwargs):
         movie_input.send_keys(Keys.RETURN)
         driver.implicitly_wait(2)
         try:
-            driver.find_element(
-                By.CLASS_NAME, "cm_pure_box.lego_rating_slide_outer"
-            )
+            driver.find_element(By.CLASS_NAME, "cm_pure_box.lego_rating_slide_outer")
 
             review_list = driver.find_element(
                 By.CLASS_NAME, "lego_review_list._scroller"

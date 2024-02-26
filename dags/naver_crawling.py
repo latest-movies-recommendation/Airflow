@@ -167,148 +167,123 @@ def daily_filename():
 def naver_review_crawling(**kwargs):
     options = Options()
     options.add_argument("--headless")
-    options.add_argument("window-size=2000x1500")
+    options.add_argument("window-size=1200x600")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
 
-    # 쿠키 허용 설정 추가
-    options.add_argument("--enable-features=NetworkService,NetworkServiceInProcess")
-    options.add_argument("--disable-features=VizDisplayCompositor")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--enable-automation")
-    options.add_argument("--disable-software-rasterizer")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--start-maximized")
-    options.add_argument("--disable-features=EnableEphemeralFlashPermission")
-    options.add_argument("--disable-save-password-bubble")
+    driver = webdriver.Chrome(options=options)
+    movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
+    naver_info_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
+    new_movies = list(set(movie_ranking_ten) - set(naver_info_movies))
 
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    )
-    # Chrome 프로필 설정
-    """chrome_prefs = {
-        "profile.default_content_setting_values": {
-            "cookies": 1,  # 1: 모든 쿠키 허용
-            "images": 1,  # 1: 이미지 표시
-            # 다른 설정들도 필요에 따라 추가
-        }
-    }"""
-    remote_webdriver = "remote_chromedriver"
-    with webdriver.Remote(f"{remote_webdriver}:4444/wd/hub", options=options) as driver:
-        movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
-        naver_info_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
-        new_movies = list(set(movie_ranking_ten) - set(naver_info_movies))
+    info_critic_score = []
 
-        info_critic_score = []
+    driver.get("https://www.naver.com")
+    driver.implicitly_wait(2)
 
-        driver.get("https://www.naver.com")
-        driver.implicitly_wait(2)
+    for movie in new_movies:
+        name = []
+        critic_review = []
+        critic_score = []
+        movie_review_search = f"영화 {movie} 관람평"
 
-        for movie in new_movies:
-            name = []
-            critic_review = []
-            critic_score = []
-            movie_review_search = f"영화 {movie} 관람평"
+        # 영화 검색
+        movie_input = driver.find_element(By.ID, "query")
+        ActionChains(driver).send_keys_to_element(
+            movie_input, movie_review_search
+        ).perform()
+        movie_input.send_keys(Keys.RETURN)
+        time.sleep(1)
 
-            # 영화 검색
-            movie_input = driver.find_element(By.ID, "query")
-            ActionChains(driver).send_keys_to_element(
-                movie_input, movie_review_search
-            ).perform()
-            movie_input.send_keys(Keys.RETURN)
+        link_pa = "/html/body/div[3]/div[2]/div/div[1]/div[2]/div[2]/div/div/div[1]/div/div/ul"
+        tabs = driver.find_element(By.XPATH, link_pa).find_elements(
+            By.CLASS_NAME, "tab._tab"
+        )
+
+        for tab in tabs:
+            who = tab.get_attribute("data-tab")
+            if who == "critics":
+                tab.find_element(By.TAG_NAME, "a").click()
+                time.sleep(1)
+                break
+
+        review_list = driver.find_element(By.CLASS_NAME, "lego_critic_outer._scroller")
+        before_h = driver.execute_script(
+            "return arguments[0].scrollHeight;", review_list
+        )
+
+        while True:
+            # 맨 아래로 스크롤을 내린다.
+            driver.execute_script(
+                "arguments[0].scrollBy(0, arguments[0].scrollHeight);", review_list
+            )
+            # 스크롤하는 동안의 페이지 로딩 시간
             time.sleep(1)
 
-            link_pa = "/html/body/div[3]/div[2]/div/div[1]/div[2]/div[2]/div/div/div[1]/div/div/ul"
-            tabs = driver.find_element(By.XPATH, link_pa).find_elements(
-                By.CLASS_NAME, "tab._tab"
-            )
-
-            for tab in tabs:
-                who = tab.get_attribute("data-tab")
-                if who == "critics":
-                    tab.find_element(By.TAG_NAME, "a").click()
-                    time.sleep(1)
-                    break
-
-            review_list = driver.find_element(
-                By.CLASS_NAME, "lego_critic_outer._scroller"
-            )
-            before_h = driver.execute_script(
+            # 스크롤 후 높이
+            after_h = driver.execute_script(
                 "return arguments[0].scrollHeight;", review_list
             )
+            if after_h == before_h:
+                break
+            before_h = after_h
+        try:
+            critic_reviews_list = driver.find_element(By.CLASS_NAME, "area_ulist")
+            critic_reviews = critic_reviews_list.find_elements(By.TAG_NAME, "li")
 
-            while True:
-                # 맨 아래로 스크롤을 내린다.
-                driver.execute_script(
-                    "arguments[0].scrollBy(0, arguments[0].scrollHeight);", review_list
-                )
-                # 스크롤하는 동안의 페이지 로딩 시간
+            num = 0
+
+            for e in critic_reviews:
+                critic_info = e.find_elements(By.CLASS_NAME, "area_dlist_info")[0]
+                critic_name = critic_info.find_element(
+                    By.CLASS_NAME, "this_info_name"
+                ).text
+
                 time.sleep(1)
-
-                # 스크롤 후 높이
-                after_h = driver.execute_script(
-                    "return arguments[0].scrollHeight;", review_list
+                star = (
+                    e.find_element(By.CLASS_NAME, "lego_movie_pure_star")
+                    .find_element(By.CLASS_NAME, "area_text_box")
+                    .text[12:]
                 )
-                if after_h == before_h:
-                    break
-                before_h = after_h
-            try:
-                critic_reviews_list = driver.find_element(By.CLASS_NAME, "area_ulist")
-                critic_reviews = critic_reviews_list.find_elements(By.TAG_NAME, "li")
+                star = star.replace("\n", "")
+                num += float(star)
 
-                num = 0
+                review_button = "div[3]/button"
+                try:
+                    e.find_element(By.XPATH, review_button).click()
+                    e.implicitly_wait(2)
+                except Exception as e:
+                    logging.info(f"{e}error")
 
-                for e in critic_reviews:
-                    critic_info = e.find_elements(By.CLASS_NAME, "area_dlist_info")[0]
-                    critic_name = critic_info.find_element(
-                        By.CLASS_NAME, "this_info_name"
-                    ).text
+                review_path = "div[3]/span"
+                review_con = e.find_element(By.XPATH, review_path).text
+                name.append(critic_name)
+                critic_review.append(review_con)
+                critic_score.append(star)
+                logging.info(name)
+                logging.info(critic_review)
+                logging.info(critic_score)
 
-                    time.sleep(1)
-                    star = (
-                        e.find_element(By.CLASS_NAME, "lego_movie_pure_star")
-                        .find_element(By.CLASS_NAME, "area_text_box")
-                        .text[12:]
-                    )
-                    star = star.replace("\n", "")
-                    num += float(star)
+            info_critic_score.append(str(num / len(critic_score)))
+            logging.info(f"평점:{info_critic_score}")
 
-                    review_button = "div[3]/button"
-                    try:
-                        e.find_element(By.XPATH, review_button).click()
-                        e.implicitly_wait(2)
-                    except Exception as e:
-                        logging.info(f"{e}error")
+            critic_review_df = pd.DataFrame(
+                {
+                    "movie": [movie] * len(name),
+                    "review": critic_review,
+                    "name": name,
+                    "score": critic_score,
+                }
+            )
 
-                    review_path = "div[3]/span"
-                    review_con = e.find_element(By.XPATH, review_path).text
-                    name.append(critic_name)
-                    critic_review.append(review_con)
-                    critic_score.append(star)
-                    logging.info(name)
-                    logging.info(critic_review)
-                    logging.info(critic_score)
-
-                info_critic_score.append(str(num / len(critic_score)))
-                logging.info(f"평점:{info_critic_score}")
-
-                critic_review_df = pd.DataFrame(
-                    {
-                        "movie": [movie] * len(name),
-                        "review": critic_review,
-                        "name": name,
-                        "score": critic_score,
-                    }
-                )
-
-                upload_to_s3(
-                    critic_review_df,
-                    f"naver/naver-critic-reviews/{movie}_critic_review.csv",
-                )
-            except Exception as e:
-                logging.info(f"{e}error")
-                info_critic_score.append("평점 없음")
-            driver.get("https://www.naver.com")
+            upload_to_s3(
+                critic_review_df,
+                f"naver/naver-critic-reviews/{movie}_critic_review.csv",
+            )
+        except Exception as e:
+            logging.info(f"{e}error")
+            info_critic_score.append("평점 없음")
+        driver.get("https://www.naver.com")
 
     return info_critic_score
 
@@ -317,293 +292,262 @@ def naver_review_crawling(**kwargs):
 def naver_info_crawling(**kwargs):
     options = Options()
     options.add_argument("--headless")
-    options.add_argument("window-size=2000x1500")
+    options.add_argument("window-size=1200x600")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
 
-    # 쿠키 허용 설정 추가
-    options.add_argument("--enable-features=NetworkService,NetworkServiceInProcess")
-    options.add_argument("--disable-features=VizDisplayCompositor")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--enable-automation")
-    options.add_argument("--disable-software-rasterizer")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--start-maximized")
-    options.add_argument("--disable-features=EnableEphemeralFlashPermission")
-    options.add_argument("--disable-save-password-bubble")
+    driver = webdriver.Chrome(options=options)
 
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    )
-    # Chrome 프로필 설정
-    """chrome_prefs = {
-        "profile.default_content_setting_values": {
-            "cookies": 1,  # 1: 모든 쿠키 허용
-            "images": 1,  # 1: 이미지 표시
-            # 다른 설정들도 필요에 따라 추가
-        }
-    }"""
-    remote_webdriver = "remote_chromedriver"
-    with webdriver.Remote(f"{remote_webdriver}:4444/wd/hub", options=options) as driver:
+    movie_posters = {}  # 영화 포스터 이미지 src 정보
+    movie_stories = []  # 영화 줄거리 정보
+    naver_grades = []
+    naver_male_grades = []
+    naver_female_grade = []
 
-        movie_posters = {}  # 영화 포스터 이미지 src 정보
-        movie_stories = []  # 영화 줄거리 정보
-        naver_grades = []
-        naver_male_grades = []
-        naver_female_grade = []
+    naver_reviews = []
+    naver_review_id = []
+    naver_review_date = []
+    naver_review_time = []
 
-        naver_reviews = []
-        naver_review_id = []
-        naver_review_date = []
-        naver_review_time = []
+    # s3 파일명 리스트
+    file_list = kwargs["ti"].xcom_pull(task_ids="read_s3_filelist")
+    logging.info(file_list)
+    # 영진위 영화 리스트 1~10위
+    movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
+    # s3에 있는 영화 정보 파일에 이미 존재하는 영화들 => 영화 정보 안 뽑아도 되고 리뷰의 경우 모든 리뷰가 아니라 오늘의 리뷰만 뽑아서 기존파일에 덧붙이기
+    naver_info_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
+    new_movies = list(set(movie_ranking_ten) - set(naver_info_movies))
+    critic_score = kwargs["ti"].xcom_pull(task_ids="naver_review_crawling")
 
-        # s3 파일명 리스트
-        file_list = kwargs["ti"].xcom_pull(task_ids="read_s3_filelist")
-        logging.info(file_list)
-        # 영진위 영화 리스트 1~10위
-        movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
-        # s3에 있는 영화 정보 파일에 이미 존재하는 영화들 => 영화 정보 안 뽑아도 되고 리뷰의 경우 모든 리뷰가 아니라 오늘의 리뷰만 뽑아서 기존파일에 덧붙이기
-        naver_info_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
-        new_movies = list(set(movie_ranking_ten) - set(naver_info_movies))
-        critic_score = kwargs["ti"].xcom_pull(task_ids="naver_review_crawling")
+    driver.get("https://www.naver.com")
+    driver.implicitly_wait(2)
 
-        driver.get("https://www.naver.com")
+    for movie in movie_ranking_ten:
+        # 줄거리, 이미지 정보 크롤링
+        if movie in naver_info_movies:
+            continue
+
+        movie_info_search = f"영화 {movie} 정보"
+
+        # 1. 영화 검색
+        movie_input = driver.find_element(By.ID, "query")
+        ActionChains(driver).send_keys_to_element(
+            movie_input, movie_info_search
+        ).perform()
+        time.sleep(1)
+        movie_input.send_keys(Keys.RETURN)
         driver.implicitly_wait(2)
 
-        for movie in movie_ranking_ten:
-            # 줄거리, 이미지 정보 크롤링
-            if movie in naver_info_movies:
-                continue
-
-            movie_info_search = f"영화 {movie} 정보"
-
-            # 1. 영화 검색
-            movie_input = driver.find_element(By.ID, "query")
-            ActionChains(driver).send_keys_to_element(
-                movie_input, movie_info_search
-            ).perform()
-            time.sleep(1)
-            movie_input.send_keys(Keys.RETURN)
+        # 영화 줄거리
+        # 1. '더 보기'를 클릭해야 전체 줄거리가 나오는 경우가 있음 (최신 영화의 경우)
+        try:
+            more_button_xpath = "/html/body/div[3]/div[2]/div/div[1]/div[2]/div[2]/div[2]/div/div[1]/div/a"
+            driver.find_element(By.XPATH, more_button_xpath).click()
             driver.implicitly_wait(2)
+        except Exception as e:
+            logging.info(f"{e}error")
 
-            # 영화 줄거리
-            # 1. '더 보기'를 클릭해야 전체 줄거리가 나오는 경우가 있음 (최신 영화의 경우)
-            try:
-                more_button_xpath = "/html/body/div[3]/div[2]/div/div[1]/div[2]/div[2]/div[2]/div/div[1]/div/a"
-                driver.find_element(By.XPATH, more_button_xpath).click()
-                driver.implicitly_wait(2)
-            except Exception as e:
-                logging.info(f"{e}error")
-
-            movie_info_tab = driver.find_element(By.CLASS_NAME, "cm_content_wrap")
-            # intro_box _content  -> text _content_text
-            try:
-                movie_story_selector = "div.cm_content_area._cm_content_area_synopsis > div > div.intro_box._content > p"
-                movie_story = movie_info_tab.find_element(
-                    By.CSS_SELECTOR, movie_story_selector
-                )
-                movie_stories.append(movie_story.text)
-                logging.info(f"{movie} 줄거리 추출함")
-
-                # 영화 포스터 이미지 src 찾
-                movie_poster_selector = "div.cm_content_area._cm_content_area_info > div > div.detail_info > a > img"
-                movie_poster = driver.find_element(
-                    By.CSS_SELECTOR, movie_poster_selector
-                )
-                poster_src = movie_poster.get_attribute("src")
-                movie_posters[movie] = poster_src
-                logging.info(poster_src)
-            except Exception as e:
-                logging.info(f"{e}error")
-
-            # 영화별로 페이지가 다르게 구현되어 있어서 다른 요소로 찾아야 함
-            try:
-                movie_story_selector = "div.cm_content_area._cm_content_area_info > div > div.detail_info > div.text_expand._movie_info_ellipsis > button"
-                movie_story = movie_info_tab.find_element(
-                    By.CSS_SELECTOR, movie_story_selector
-                )
-                movie_stories.append(movie_story.text)
-                logging.info(f"{movie} 줄거리 추출함")
-
-                # 영화 포스터 이미지 src 찾
-                movie_poster_selector = "div.cm_content_area._cm_content_area_info > div > div.detail_info > div.thumb > img"
-                movie_poster = driver.find_element(
-                    By.CSS_SELECTOR, movie_poster_selector
-                )
-                poster_src = movie_poster.get_attribute("src")
-                movie_posters[movie] = poster_src
-                logging.info(poster_src)
-            except Exception as e:
-                logging.info(f"{e}error")
-
-            driver.get("https://www.naver.com")
-
-        movie_nm = []
-        # 영화 리뷰, 평점 크롤링
-        for movie in movie_ranking_ten:
-            movie_review_search = f"영화 {movie} 관람평"
-            # 1. 영화 검색
-            movie_input = driver.find_element(By.ID, "query")
-            ActionChains(driver).send_keys_to_element(
-                movie_input, movie_review_search
-            ).perform()
-            time.sleep(1)
-            movie_input.send_keys(Keys.RETURN)
-            driver.implicitly_wait(2)
-
-            if movie not in naver_info_movies:
-                grade_reviews_tab = driver.find_element(
-                    By.CLASS_NAME, "cm_pure_box.lego_rating_slide_outer"
-                )
-                # 평점 추출
-                grade = grade_reviews_tab.find_element(
-                    By.CLASS_NAME, "lego_rating_box_see"
-                )
-                # 관람객 평점
-                entire_grade = grade.find_element(
-                    By.CSS_SELECTOR, "div.area_intro_info > span.area_star_number"
-                ).text[:-2]
-                # 남성 관람객 평점
-                male_grade = grade.find_element(
-                    By.CSS_SELECTOR,
-                    "div.area_gender > div.area_card_male > span.area_star_number > span",
-                ).text
-                # 여성 관람객 평점
-                female_grade = grade.find_element(
-                    By.CSS_SELECTOR,
-                    "div.area_gender > div.area_card_female > span.area_star_number > span",
-                ).text
-
-                naver_grades.append(entire_grade)
-                naver_male_grades.append(male_grade)
-                naver_female_grade.append(female_grade)
-                logging.info(entire_grade, male_grade, female_grade)
-
-                # 리뷰 추출
-            review_list = driver.find_element(
-                By.CLASS_NAME, "lego_review_list._scroller"
+        movie_info_tab = driver.find_element(By.CLASS_NAME, "cm_content_wrap")
+        # intro_box _content  -> text _content_text
+        try:
+            movie_story_selector = "div.cm_content_area._cm_content_area_synopsis > div > div.intro_box._content > p"
+            movie_story = movie_info_tab.find_element(
+                By.CSS_SELECTOR, movie_story_selector
             )
-            before_h = driver.execute_script(
+            movie_stories.append(movie_story.text)
+            logging.info(f"{movie} 줄거리 추출함")
+
+            # 영화 포스터 이미지 src 찾
+            movie_poster_selector = "div.cm_content_area._cm_content_area_info > div > div.detail_info > a > img"
+            movie_poster = driver.find_element(By.CSS_SELECTOR, movie_poster_selector)
+            poster_src = movie_poster.get_attribute("src")
+            movie_posters[movie] = poster_src
+            logging.info(poster_src)
+        except Exception as e:
+            logging.info(f"{e}error")
+
+        # 영화별로 페이지가 다르게 구현되어 있어서 다른 요소로 찾아야 함
+        try:
+            movie_story_selector = "div.cm_content_area._cm_content_area_info > div > div.detail_info > div.text_expand._movie_info_ellipsis > button"
+            movie_story = movie_info_tab.find_element(
+                By.CSS_SELECTOR, movie_story_selector
+            )
+            movie_stories.append(movie_story.text)
+            logging.info(f"{movie} 줄거리 추출함")
+
+            # 영화 포스터 이미지 src 찾
+            movie_poster_selector = "div.cm_content_area._cm_content_area_info > div > div.detail_info > div.thumb > img"
+            movie_poster = driver.find_element(By.CSS_SELECTOR, movie_poster_selector)
+            poster_src = movie_poster.get_attribute("src")
+            movie_posters[movie] = poster_src
+            logging.info(poster_src)
+        except Exception as e:
+            logging.info(f"{e}error")
+
+        driver.get("https://www.naver.com")
+
+    movie_nm = []
+    # 영화 리뷰, 평점 크롤링
+    for movie in movie_ranking_ten:
+        movie_review_search = f"영화 {movie} 관람평"
+        # 1. 영화 검색
+        movie_input = driver.find_element(By.ID, "query")
+        ActionChains(driver).send_keys_to_element(
+            movie_input, movie_review_search
+        ).perform()
+        time.sleep(1)
+        movie_input.send_keys(Keys.RETURN)
+        driver.implicitly_wait(2)
+
+        if movie not in naver_info_movies:
+            grade_reviews_tab = driver.find_element(
+                By.CLASS_NAME, "cm_pure_box.lego_rating_slide_outer"
+            )
+            # 평점 추출
+            grade = grade_reviews_tab.find_element(By.CLASS_NAME, "lego_rating_box_see")
+            # 관람객 평점
+            entire_grade = grade.find_element(
+                By.CSS_SELECTOR, "div.area_intro_info > span.area_star_number"
+            ).text[:-2]
+            # 남성 관람객 평점
+            male_grade = grade.find_element(
+                By.CSS_SELECTOR,
+                "div.area_gender > div.area_card_male > span.area_star_number > span",
+            ).text
+            # 여성 관람객 평점
+            female_grade = grade.find_element(
+                By.CSS_SELECTOR,
+                "div.area_gender > div.area_card_female > span.area_star_number > span",
+            ).text
+
+            naver_grades.append(entire_grade)
+            naver_male_grades.append(male_grade)
+            naver_female_grade.append(female_grade)
+            logging.info(entire_grade, male_grade, female_grade)
+
+            # 리뷰 추출
+        review_list = driver.find_element(By.CLASS_NAME, "lego_review_list._scroller")
+        before_h = driver.execute_script(
+            "return arguments[0].scrollHeight;", review_list
+        )
+
+        while True:
+            # 맨 아래로 스크롤을 내린다.
+            driver.execute_script(
+                "arguments[0].scrollBy(0, arguments[0].scrollHeight);", review_list
+            )
+            # 스크롤하는 동안의 페이지 로딩 시간
+            time.sleep(1)
+
+            # 스크롤 후 높이
+            after_h = driver.execute_script(
                 "return arguments[0].scrollHeight;", review_list
             )
+            if after_h == before_h:
+                break
+            before_h = after_h
 
-            while True:
-                # 맨 아래로 스크롤을 내린다.
-                driver.execute_script(
-                    "arguments[0].scrollBy(0, arguments[0].scrollHeight);", review_list
+        review_list = review_list.find_element(
+            By.CLASS_NAME, "area_card_outer._item_wrapper"
+        )
+        reviews = review_list.find_elements(By.CLASS_NAME, "area_card._item")
+
+        # 영화별 리뷰 추출
+        movie_review = []
+        movie_review_date = []
+        movie_review_time = []
+        movie_review_id = []
+        movie_score = []
+
+        for i in range(len(reviews)):
+            review_content = reviews[i].get_attribute("data-report-title")
+
+            if review_content != " ":
+                review_date = reviews[i].get_attribute("data-report-time")[
+                    :8
+                ]  # 작성 날짜
+                review_time = reviews[i].get_attribute("data-report-time")[
+                    -5:
+                ]  # 작성 시간
+                review_id = reviews[i].get_attribute(
+                    "data-report-writer-id"
+                )  # 작성 아이디
+                review_score = (
+                    reviews[i]
+                    .find_element(By.CLASS_NAME, "area_text_box")
+                    .text[12:]
+                    .replace("\n", "")
                 )
-                # 스크롤하는 동안의 페이지 로딩 시간
-                time.sleep(1)
 
-                # 스크롤 후 높이
-                after_h = driver.execute_script(
-                    "return arguments[0].scrollHeight;", review_list
-                )
-                if after_h == before_h:
-                    break
-                before_h = after_h
+                # 영화별 리뷰 전체 저장
+                movie_review.append(review_content)
+                movie_review_date.append(review_date)
+                movie_review_id.append(review_id)
+                movie_review_time.append(review_time)
+                movie_score.append(review_score)
 
-            review_list = review_list.find_element(
-                By.CLASS_NAME, "area_card_outer._item_wrapper"
-            )
-            reviews = review_list.find_elements(By.CLASS_NAME, "area_card._item")
+                # 리뷰가 하나도 없는 영화일 경우 전체 리뷰 추출 => 네이버 info파일의 영화명에서 추출
+                if (review_score == "10") and (movie not in naver_info_movies):
+                    movie_nm.append(movie)
+                    naver_reviews.append(review_content)
+                    naver_review_id.append(review_id)
+                    naver_review_date.append(review_date)
+                    naver_review_time.append(review_time)
 
-            # 영화별 리뷰 추출
-            movie_review = []
-            movie_review_date = []
-            movie_review_time = []
-            movie_review_id = []
-            movie_score = []
-
-            for i in range(len(reviews)):
-                review_content = reviews[i].get_attribute("data-report-title")
-
-                if review_content != " ":
-                    review_date = reviews[i].get_attribute("data-report-time")[
-                        :8
-                    ]  # 작성 날짜
-                    review_time = reviews[i].get_attribute("data-report-time")[
-                        -5:
-                    ]  # 작성 시간
-                    review_id = reviews[i].get_attribute(
-                        "data-report-writer-id"
-                    )  # 작성 아이디
-                    review_score = (
-                        reviews[i]
-                        .find_element(By.CLASS_NAME, "area_text_box")
-                        .text[12:]
-                        .replace("\n", "")
-                    )
-
-                    # 영화별 리뷰 전체 저장
-                    movie_review.append(review_content)
-                    movie_review_date.append(review_date)
-                    movie_review_id.append(review_id)
-                    movie_review_time.append(review_time)
-                    movie_score.append(review_score)
-
-                    # 리뷰가 하나도 없는 영화일 경우 전체 리뷰 추출 => 네이버 info파일의 영화명에서 추출
-                    if (review_score == "10") and (movie not in naver_info_movies):
+                else:
+                    # 별점 10점이면서 오늘 날짜의 리뷰만 추출
+                    if review_date == today_date() and review_score == "10":
                         movie_nm.append(movie)
                         naver_reviews.append(review_content)
                         naver_review_id.append(review_id)
                         naver_review_date.append(review_date)
                         naver_review_time.append(review_time)
 
-                    else:
-                        # 별점 10점이면서 오늘 날짜의 리뷰만 추출
-                        if review_date == today_date() and review_score == "10":
-                            movie_nm.append(movie)
-                            naver_reviews.append(review_content)
-                            naver_review_id.append(review_id)
-                            naver_review_date.append(review_date)
-                            naver_review_time.append(review_time)
-
-            df = pd.DataFrame(
-                {
-                    "movie": [movie] * len(movie_review),
-                    "naver_review": movie_review,
-                    "id": movie_review_id,
-                    "review_date": movie_review_date,
-                    "review_date_time": movie_review_time,
-                    "score": movie_score,
-                }
-            )
-            upload_to_s3(df, f"naver/naver-reviews/{movie}_review.csv")
-
-            driver.get("https://www.naver.com")
-
-            # 영화 줄거리, 평점 dataframe
-        naver_movie_info = pd.DataFrame(
+        df = pd.DataFrame(
             {
-                "movie": new_movies,
-                "story": movie_stories,
-                "entire_grade": naver_grades,
-                "male_grade": naver_male_grades,
-                "female_grade": naver_female_grade,
-                "critic_score": critic_score,
+                "movie": [movie] * len(movie_review),
+                "naver_review": movie_review,
+                "id": movie_review_id,
+                "review_date": movie_review_date,
+                "review_date_time": movie_review_time,
+                "score": movie_score,
             }
         )
+        upload_to_s3(df, f"naver/naver-reviews/{movie}_review.csv")
 
-        # 영화 리뷰 dataframe
-        naver_movie_reviews = pd.DataFrame(
-            {
-                "movie": movie_nm,
-                "naver_review": naver_reviews,
-                "id": naver_review_id,
-                "review_date": naver_review_date,
-                "review_date_time": naver_review_time,
-            }
-        )
+        driver.get("https://www.naver.com")
 
-        if "naver/naver_info.csv" in file_list:
-            update_s3_file(naver_movie_info, "naver/naver_info.csv")
-            update_s3_file(naver_movie_reviews, "naver/naver_reviews.csv")
-        else:
-            upload_to_s3(naver_movie_info, "naver/naver_info.csv")
-            upload_to_s3(naver_movie_reviews, "naver/naver_reviews.csv")
+        # 영화 줄거리, 평점 dataframe
+    naver_movie_info = pd.DataFrame(
+        {
+            "movie": new_movies,
+            "story": movie_stories,
+            "entire_grade": naver_grades,
+            "male_grade": naver_male_grades,
+            "female_grade": naver_female_grade,
+            "critic_score": critic_score,
+        }
+    )
 
-        return movie_posters
+    # 영화 리뷰 dataframe
+    naver_movie_reviews = pd.DataFrame(
+        {
+            "movie": movie_nm,
+            "naver_review": naver_reviews,
+            "id": naver_review_id,
+            "review_date": naver_review_date,
+            "review_date_time": naver_review_time,
+        }
+    )
+
+    if "naver/naver_info.csv" in file_list:
+        update_s3_file(naver_movie_info, "naver/naver_info.csv")
+        update_s3_file(naver_movie_reviews, "naver/naver_reviews.csv")
+    else:
+        upload_to_s3(naver_movie_info, "naver/naver_info.csv")
+        upload_to_s3(naver_movie_reviews, "naver/naver_reviews.csv")
+
+    return movie_posters
 
 
 default_args = {
