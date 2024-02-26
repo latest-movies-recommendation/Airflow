@@ -22,8 +22,7 @@ def today_date():
 
 def get_daily_box_office(ti, **kwargs):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
-    # s3_key = f"kofic/daily-box-office/{today_date()}.csv"
-    s3_key = "kofic/daily-box-office/20240216.csv"
+    s3_key = f"kofic/daily-box-office/{today_date()}.csv"
     try:
         obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
         if obj:
@@ -79,7 +78,7 @@ def scraping_watcha(**kwargs):
                 logging.info(f"{title}의 스크롤링을 시작합니다.")
 
                 page_scrolling(driver)
-                driver.implicitly_wait(2)
+                driver.implicitly_wait(3)
                 logging.info(f"{title}의 스크롤링을 마쳤습니다.")
 
                 reviews = driver.find_elements(By.CLASS_NAME, "egj9y8a4")
@@ -144,7 +143,7 @@ def page_scrolling(driver):
             driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
 
             # 전체 스크롤이 늘어날 때까지 대기
-            driver.implicitly_wait(2)
+            driver.implicitly_wait(3)
 
             # 늘어난 스크롤 높이
             scroll_height = driver.execute_script("return document.body.scrollHeight")
