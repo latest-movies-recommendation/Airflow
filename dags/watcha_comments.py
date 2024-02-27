@@ -79,7 +79,7 @@ def scraping_watcha(**kwargs):
                 logging.info(f"{title}의 스크롤링을 시작합니다.")
 
                 page_scrolling(driver)
-                driver.implicitly_wait(3)
+                driver.implicitly_wait(10)
                 logging.info(f"{title}의 스크롤링을 마쳤습니다.")
 
                 reviews = driver.find_elements(By.CLASS_NAME, "egj9y8a4")
@@ -172,8 +172,7 @@ def page_scrolling(driver, target_height=73122):
         while True:
             cnt += 1
             driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
-            # driver.implicitly_wait(2)
-            time.sleep(2)
+            driver.implicitly_wait(10)
             scroll_height = driver.execute_script("return document.body.scrollHeight")
             if scroll_height >= target_height:
                 break
