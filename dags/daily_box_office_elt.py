@@ -6,7 +6,6 @@ from io import StringIO
 import pandas as pd
 from airflow.decorators import dag, task
 from airflow.models import Variable
-# from airflow.operators.python import get_current_context
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from sqlalchemy import create_engine
