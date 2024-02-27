@@ -6,15 +6,17 @@ from io import StringIO
 import pandas as pd
 from airflow.decorators import dag, task
 from airflow.models import Variable
-from airflow.operators.python import get_current_context
+# from airflow.operators.python import get_current_context
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from sqlalchemy import create_engine
 
+
 def yesterday_date_format():
     now = datetime.now() - timedelta(days=1)
     return now.strftime("%Y%m%d")
-    
+
+
 default_args = {
     "owner": "yein",
     "start_date": datetime(2003, 11, 11),
@@ -33,7 +35,7 @@ def daily_box_office_elt():
     @task
     def daily_box_office_s3_to_postgres():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
-        context = get_current_context()
+        # context = get_current_context()
         # execution_date = context["ds"]
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
@@ -109,10 +111,11 @@ def daily_box_office_elt():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
 
-        context = get_current_context()
-        execution_date = context["ds"]
-        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
-
+        # context = get_current_context()
+        # execution_date = context["ds"]
+        # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        target_date = yesterday_date_format()
+        
         prefix = f"kofic/movies-to-fetch/{target_date}/"
 
         keys = s3_hook.list_keys(bucket_name=bucket_name, prefix=prefix)
