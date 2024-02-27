@@ -195,42 +195,100 @@ def upload_to_s3(title, df):
     logging.info(df)
     key = f"watcha/{file_name}"
     s3_hook = S3Hook(aws_conn_id="aws_conn")
+    s3_bucket_name = Variable.get("s3_bucket_name")
 
     # 기존 파일이 있는지 확인
     try:
-        existing_df = pd.read_csv(f"s3://{Variable.get('s3_bucket_name')}/{key}")
-        logging.info(f"존재하는 파일이 있습니다. :{file_name}")
+        # S3에서 기존 데이터프레임 로드
+        obj = s3_hook.get_key(key=key, bucket_name=s3_bucket_name)
+        if obj:
+            existing_csv = obj.get()["Body"].read().decode("utf-8")
+            existing_df = pd.read_csv(StringIO(existing_csv))
+            logging.info(f"존재하는 파일이 있습니다. :{file_name}")
 
-        merged_df = pd.concat([existing_df, df], ignore_index=True)
-        # 중복되지 않는 데이터만 선택
-        new_data = merged_df.drop_duplicates(keep=False)
+            # 새 데이터와 기존 데이터 병합 후 중복 제거
+            combined_df = pd.concat([existing_df, df]).drop_duplicates(
+                subset=["id"], keep="first", ignore_index=True
+            )
+            new_data = combined_df[~combined_df["id"].isin(existing_df["id"])]
 
-        # S3에 업로드
-        logging.info(f"Uploading {file_name} to s3")
-        s3_hook.load_string(
-            string_data=get_csv_string(new_data),
-            key=key,
-            bucket_name=Variable.get("s3_bucket_name"),
-            replace=True,
-        )  # 동일한 키가 있을 경우 덮어쓰기 설정
-        logging.info(f"{file_name} S3에 업로드 완료!")
+            if not new_data.empty:
+                # 중복되지 않는 새 데이터만 기존 파일에 추가
+                final_df = pd.concat([existing_df, new_data], ignore_index=True)
+                # 수집 일자 순으로 데이터 정렬
+                final_df_sorted = final_df.sort_values(
+                    by="collected_date", ascending=False
+                )
+                # S3에 업로드
+                s3_hook.load_string(
+                    string_data=get_csv_string(final_df_sorted),
+                    key=key,
+                    bucket_name=s3_bucket_name,
+                    replace=True,
+                )
+                logging.info(
+                    f"{file_name}에 새로운 데이터 추가 및 정려하여 S3에 업로드 완료!"
+                )
+            else:
+                logging.info("추가할 새로운 댓글이 없습니다.")
 
     except Exception as e:
-        # 기존 파일이 없는 경우
-        logging.info(f"존재하는 {file_name} 파일이 없습니다. 새로 업로드합니다.{e}")
+        logging.info(
+            f"기존 {file_name} 파일 처리 중 에러 발생 또는 파일 없음. 새로 업로드를 시도합니다.: {e}"
+        )
+        # 기존 파일이 없으면 새 파일로 업로드
+        s3_hook.load_string(
+            string_data=get_csv_string(df),
+            key=key,
+            bucket_name=s3_bucket_name,
+            replace=True,
+        )
+        logging.info(f"{file_name} S3에 신규 업로드 완료!")
 
-        # S3에 업로드
-        try:
-            logging.info(f"Uploading {file_name} to S3")
-            s3_hook.load_string(
-                string_data=get_csv_string(df),
-                key=key,
-                bucket_name=Variable.get("s3_bucket_name"),
-                replace=True,
-            )  # 동일한 키가 있을 경우 덮어쓰기 설정
-            logging.info(f"{file_name} S3에 업로드 완료!")
-        except Exception as e:
-            logging.info(f"신규 {file_name} 파일 업로드 에러: {e}")
+
+# def upload_to_s3(title, df):
+#     # 파일 제목에 들어가서는 안 되는 문자 제거
+#     safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
+#     file_name = f"{safe_title}.csv"
+#     logging.info(df)
+#     key = f"watcha/{file_name}"
+#     s3_hook = S3Hook(aws_conn_id="aws_conn")
+#
+#     # 기존 파일이 있는지 확인
+#     try:
+#         existing_df = pd.read_csv(f"s3://{Variable.get('s3_bucket_name')}/{key}")
+#         logging.info(f"존재하는 파일이 있습니다. :{file_name}")
+#
+#         merged_df = pd.concat([existing_df, df], ignore_index=True)
+#         # 중복되지 않는 데이터만 선택
+#         new_data = merged_df.drop_duplicates(keep=False)
+#
+#         # S3에 업로드
+#         logging.info(f"Uploading {file_name} to s3")
+#         s3_hook.load_string(
+#             string_data=get_csv_string(new_data),
+#             key=key,
+#             bucket_name=Variable.get("s3_bucket_name"),
+#             replace=True,
+#         )  # 동일한 키가 있을 경우 덮어쓰기 설정
+#         logging.info(f"{file_name} S3에 업로드 완료!")
+#
+#     except Exception as e:
+#         # 기존 파일이 없는 경우
+#         logging.info(f"존재하는 {file_name} 파일이 없습니다. 새로 업로드합니다.{e}")
+#
+#         # S3에 업로드
+#         try:
+#             logging.info(f"Uploading {file_name} to S3")
+#             s3_hook.load_string(
+#                 string_data=get_csv_string(df),
+#                 key=key,
+#                 bucket_name=Variable.get("s3_bucket_name"),
+#                 replace=True,
+#             )  # 동일한 키가 있을 경우 덮어쓰기 설정
+#             logging.info(f"{file_name} S3에 업로드 완료!")
+#         except Exception as e:
+#             logging.info(f"신규 {file_name} 파일 업로드 에러: {e}")
 
 
 dag = DAG(
