@@ -14,15 +14,14 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
 
-# 오늘 날짜 ex)20240216 형식으로 리턴
-def today_date():
-    now = datetime.now()
+# 어제 날짜 ex)20240215 형식으로 리턴
+def yesterday_date():
+    now = datetime.now() - timedelta(days=1)
     return now.strftime("%Y%m%d")
-
 
 def get_daily_box_office(ti, **kwargs):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
-    s3_key = f"kofic/daily-box-office/{today_date()}.csv"
+    s3_key = f"kofic/daily-box-office/{yesterday_date()}.csv"
     try:
         obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
         if obj:
