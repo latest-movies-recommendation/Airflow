@@ -2,6 +2,7 @@ import logging
 import time
 from datetime import date, datetime, timedelta
 from io import StringIO
+
 # 이미지 경로를 기반으로 서버에 요청하여 이미지 파일을 저장하게 하는 라이브러리
 from urllib.request import urlopen
 
