@@ -14,15 +14,15 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
 
-# 오늘 날짜 ex)20240216 형식으로 리턴
-def today_date():
-    now = datetime.now()
+# 어제 날짜 ex)20240215 형식으로 리턴
+def yesterday_date():
+    now = datetime.now() - timedelta(days=1)
     return now.strftime("%Y%m%d")
 
 
 def get_daily_box_office(ti, **kwargs):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
-    s3_key = f"kofic/daily-box-office/{today_date()}.csv"
+    s3_key = f"kofic/daily-box-office/{yesterday_date()}.csv"
     try:
         obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
         if obj:
@@ -30,7 +30,7 @@ def get_daily_box_office(ti, **kwargs):
             csv_data = obj.get()["Body"].read().decode("utf-8")
             df = pd.read_csv(StringIO(csv_data))
             logging.info(
-                f"{today_date()}자 daily-box-office 파일 다운로드 및 데이터프레임으로의 변환 성공!"
+                f"{yesterday_date()}자 daily-box-office 파일 다운로드 및 데이터프레임으로의 변환 성공!"
             )
             if "movieNm" not in df.columns:
                 raise ValueError("movieNm 컬럼이 데이터프레임에 존재하지 않습니다.")
@@ -40,7 +40,7 @@ def get_daily_box_office(ti, **kwargs):
             logging.info(movies)
             return movies
         else:
-            logging.info(f"S3에 {today_date()}자 해당 파일이 없습니다.")
+            logging.info(f"S3에 {yesterday_date()}자 해당 파일이 없습니다.")
             return None
     except Exception as e:
         logging.info(f"S3로부터 데이터를 로드하는 데 실패했습니다.: {e}")

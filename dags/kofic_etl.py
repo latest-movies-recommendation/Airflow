@@ -6,9 +6,14 @@ import pandas as pd
 import requests
 from airflow.decorators import dag, task
 from airflow.models import Variable
-from airflow.operators.python import get_current_context
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
+
+
+def yesterday_date_format():
+    now = datetime.now() - timedelta(days=1)
+    return now.strftime("%Y%m%d")
+
 
 default_args = {
     "owner": "yein",
@@ -30,9 +35,10 @@ def kofic_etl():
     def get_daily_box_office():
         api_key = Variable.get("kofic_key")
 
-        context = get_current_context()
-        execution_date = context["ds"]
-        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        # context = get_current_context()
+        # execution_date = context["ds"]
+        # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        target_date = yesterday_date_format()
         base_url = "http://www.kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDailyBoxOfficeList.json"
         combinations = [
             ("Y", "K"),
@@ -147,9 +153,10 @@ def kofic_etl():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
 
-        context = get_current_context()
-        execution_date = context["ds"]
-        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        # context = get_current_context()
+        # execution_date = context["ds"]
+        # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        target_date = yesterday_date_format()
 
         prefix = f"kofic/movies-to-fetch/{target_date}/"
 
@@ -170,9 +177,10 @@ def kofic_etl():
     def get_movie(movie_cds):
         api_key = Variable.get("kofic_key")
 
-        context = get_current_context()
-        execution_date = context["ds"]
-        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        # context = get_current_context()
+        # execution_date = context["ds"]
+        # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        target_date = yesterday_date_format()
 
         for movie_cd in movie_cds:
             response = requests.get(
@@ -188,7 +196,7 @@ def kofic_etl():
             s3_hook = S3Hook(aws_conn_id="aws_conn")
             s3_hook.load_string(
                 string_data=json.dumps(movie_info, ensure_ascii=False),
-                key=f"kofic/movie/{target_date}/{movie_cd}.json",
+                key=f"kofic/movie/{target_date}/{movie_cd}.csv",
                 bucket_name=bucket_name,
                 replace=True,
             )
