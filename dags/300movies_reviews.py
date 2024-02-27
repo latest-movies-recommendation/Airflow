@@ -212,10 +212,10 @@ def naver_review_crawling(**kwargs):
         }
     )
 
-    if "naver/naver_reviews.csv" in file_list:
-        update_s3_file(naver_movie_reviews, "naver/naver_reviews.csv")
+    if "naver/naver_300reviews.csv" in file_list:
+        update_s3_file(naver_movie_reviews, "naver/naver_300reviews.csv")
     else:
-        upload_to_s3(naver_movie_reviews, "naver/naver_reviews.csv")
+        upload_to_s3(naver_movie_reviews, "naver/naver_300reviews.csv")
 
 
 default_args = {
