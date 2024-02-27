@@ -57,9 +57,9 @@ def setting_driver():
 
 
 def scraping_watcha(**kwargs):
-    # ti = kwargs["ti"]
-    # titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
-    titles = ["파이트클럽", "무간도2", "사도", "펄프픽션", "테넷", "식스센스", "바빌론"]
+    ti = kwargs["ti"]
+    titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
+    # titles = ["파이트클럽", "무간도2", "사도", "펄프픽션", "테넷", "식스센스", "바빌론"]
     logging.info(titles)
 
     driver = setting_driver()
@@ -122,6 +122,7 @@ def scraping_watcha(**kwargs):
                 df = df[
                     ["id", "movie_name", "collected_date", "score", "likes", "comment"]
                 ]
+                logging.info("------새로 수집된 댓글 데이터프레임------")
                 logging.info(df)
 
                 # S3에 업로드
@@ -210,7 +211,6 @@ def upload_to_s3(title, df):
     # 파일 제목에 들어가서는 안 되는 문자 제거
     safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
     file_name = f"{safe_title}.csv"
-    logging.info(df)
     key = f"watcha/{file_name}"
     s3_hook = S3Hook(aws_conn_id="aws_conn")
     s3_bucket_name = Variable.get("s3_bucket_name")
@@ -223,6 +223,9 @@ def upload_to_s3(title, df):
             existing_csv = obj.get()["Body"].read().decode("utf-8")
             existing_df = pd.read_csv(StringIO(existing_csv))
             logging.info(f"존재하는 파일이 있습니다. :{file_name}")
+
+            # `collected_date` 열을 datetime 타입으로 변환
+            df["collected_date"] = pd.to_datetime(df["collected_date"])
 
             # 새 데이터와 기존 데이터 병합 후 중복 제거
             combined_df = pd.concat([existing_df, df]).drop_duplicates(
@@ -245,7 +248,7 @@ def upload_to_s3(title, df):
                     replace=True,
                 )
                 logging.info(
-                    f"{file_name}에 새로운 데이터 추가 및 정려하여 S3에 업로드 완료!"
+                    f"{file_name}에 새로운 데이터 추가 및 정리하여 S3에 업로드 완료!"
                 )
             else:
                 logging.info("추가할 새로운 댓글이 없습니다.")
