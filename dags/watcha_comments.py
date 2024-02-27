@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from datetime import datetime, timedelta
 from io import StringIO
 
@@ -143,7 +144,8 @@ def page_scrolling(driver):
             driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
 
             # 전체 스크롤이 늘어날 때까지 대기
-            driver.implicitly_wait(3)
+            # driver.implicitly_wait(3)
+            time.sleep(2)
 
             # 늘어난 스크롤 높이
             scroll_height = driver.execute_script("return document.body.scrollHeight")

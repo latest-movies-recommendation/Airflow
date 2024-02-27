@@ -144,7 +144,7 @@ def kofic_etl():
             """,
         database=database_name,
         output_location=f's3://{Variable.get("s3_bucket_name")}/kofic/movies-to-fetch/'
-        + "{{ ds_nodash }}",
+        + "{{ target_date_nodash }}",
         aws_conn_id="aws_conn",
     )
 
