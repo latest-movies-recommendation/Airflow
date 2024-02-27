@@ -130,6 +130,7 @@ def upload_to_s3(**kwargs):
 
         # 이미지 업로드
         with open(wordcloud_image_path, "rb") as f:
+            logging.info(f"Uploading {wordcloud_image_path} with size {len(f.read())} bytes")
             s3_hook.load_file(
                 filename=wordcloud_image_path,
                 key=f"image/wordcloud_{title}.png",
@@ -139,6 +140,7 @@ def upload_to_s3(**kwargs):
 
         # CSV 업로드
         with open(processed_csv_path, "rb") as f:
+            logging.info(f"Uploading {processed_csv_path} with size {len(f.read())} bytes")
             s3_hook.load_file(
                 filename=processed_csv_path,
                 key=f"dict/processed_{title}.csv",
