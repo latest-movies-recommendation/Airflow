@@ -185,8 +185,7 @@ def today_date():
 
 # 예인님 파일 이름
 def daily_filename():
-    # today_ymd = today_date()
-    today_ymd = "20240102"
+    today_ymd = today_date()
     return f"kofic/daily-box-office/{today_ymd}.csv"
 
 
