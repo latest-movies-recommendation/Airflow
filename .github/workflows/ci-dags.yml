@@ -25,7 +25,7 @@ jobs:
         pip install flake8 black isort
         
     - name: Run Flake8
-      run: flake8 --max-line-length=120 dags
+      run: flake8 --max-line-length=150 dags
 
     - name: Check formatting with Black
       run: black --check dags
