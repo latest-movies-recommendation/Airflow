@@ -11,6 +11,10 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from sqlalchemy import create_engine
 
+def yesterday_date_format():
+    now = datetime.now() - timedelta(days=1)
+    return now.strftime("%Y%m%d")
+    
 default_args = {
     "owner": "yein",
     "start_date": datetime(2003, 11, 11),
@@ -30,8 +34,9 @@ def daily_box_office_elt():
     def daily_box_office_s3_to_postgres():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         context = get_current_context()
-        execution_date = context["ds"]
-        target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        # execution_date = context["ds"]
+        # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        target_date = yesterday_date_format()
         bucket_name = Variable.get("s3_bucket_name")
         object_key = f"kofic/daily-box-office/{target_date}.csv"
         csv_content = s3_hook.read_key(object_key, bucket_name)
