@@ -187,12 +187,7 @@ def page_scrolling(driver, target_height=73122, max_attempts=300):
             driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
             driver.implicitly_wait(10)
             scroll_height = driver.execute_script("return document.body.scrollHeight")
-            if (
-                scroll_height >= target_height
-                or driver.execute_script("return window.pageYOffset;")
-                + driver.execute_script("return window.innerHeight;")
-                >= scroll_height
-            ):
+            if scroll_height >= target_height:
                 break
             logging.info(f"스크롤링 {cnt}회")
     except Exception as e:
