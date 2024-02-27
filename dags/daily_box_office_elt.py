@@ -115,7 +115,7 @@ def daily_box_office_elt():
         # execution_date = context["ds"]
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
-        
+
         prefix = f"kofic/movies-to-fetch/{target_date}/"
 
         keys = s3_hook.list_keys(bucket_name=bucket_name, prefix=prefix)
