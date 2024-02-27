@@ -25,7 +25,7 @@ def read_s3_filelist():
         logging.info("S3에 성공적으로 연결되었습니다.")
     else:
         logging.error("S3 연결에 실패했습니다.")
-        return []
+        return None
 
     try:
         response = s3.list_keys(bucket_name, prefix="naver/")
@@ -33,7 +33,7 @@ def read_s3_filelist():
         return file_list
     except Exception as e:
         logging.error(f"S3에서 파일 목록을 가져오는 중 오류 발생: {e}")
-        return []
+        return None
 
 
 # s3에 파일 업로드
@@ -59,8 +59,11 @@ def update_s3_file(dataframe, s3_key):
     # s3 파일 읽기
     s3 = S3Hook(aws_conn_id="aws_conn")
     try:
-        obj = s3.get_object(Bucket=Variable.get("s3_bucket_name"), Key=s3_key)
-        s3_dataframe = pd.read_csv(obj["Body"])
+        obj = s3.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
+        if obj:
+            csv_data = obj.get()["Body"].read().decode("utf-8")
+            s3_dataframe = pd.read_csv(StringIO(csv_data))
+
     except Exception as e:
         logging.info(f"Failed to read CSV file from S3: {e}")
         return
@@ -124,7 +127,12 @@ def upload_image_to_s3(**kwargs):
         file_name = f"naver/naver-images/{movie}.jpg"
 
         try:
-            s3.put_object(Body=image_data, Bucket=bucket_name, Key=file_name)
+            s3.load_bytes(
+                bytes_data=image_data,
+                key=file_name,
+                bucket_name=bucket_name,
+                replace=True,
+            )
             logging.info(f"{movie} 이미지를 S3에 성공적으로 업로드했습니다.")
         except Exception as e:
             logging.error(f"S3에 이미지를 업로드하는 중 오류 발생: {e}")
