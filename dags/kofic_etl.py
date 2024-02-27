@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 from airflow.decorators import dag, task
 from airflow.models import Variable
-from airflow.operators.python import get_current_context
+# from airflow.operators.python import get_current_context
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
@@ -34,7 +34,7 @@ def kofic_etl():
     def get_daily_box_office():
         api_key = Variable.get("kofic_key")
 
-        context = get_current_context()
+        # context = get_current_context()
         # execution_date = context["ds"]
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
@@ -152,7 +152,7 @@ def kofic_etl():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
 
-        context = get_current_context()
+        # context = get_current_context()
         # execution_date = context["ds"]
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
@@ -176,7 +176,7 @@ def kofic_etl():
     def get_movie(movie_cds):
         api_key = Variable.get("kofic_key")
 
-        context = get_current_context()
+        # context = get_current_context()
         # execution_date = context["ds"]
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
