@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from datetime import datetime, timedelta
 from io import StringIO
 
