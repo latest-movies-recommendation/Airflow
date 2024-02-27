@@ -58,7 +58,8 @@ def setting_driver():
 
 def scraping_watcha(**kwargs):
     ti = kwargs["ti"]
-    titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
+    # titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
+    titles = ["파이트클럽", "무간도2", "사도", "펄프픽션", "테넷", "식스센스", "바빌론"]
     logging.info(titles)
 
     driver = setting_driver()
