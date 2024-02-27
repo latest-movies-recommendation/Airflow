@@ -225,7 +225,7 @@ def upload_to_s3(title, df):
             logging.info(f"존재하는 파일이 있습니다. :{file_name}")
 
             # `collected_date` 열을 datetime 타입으로 변환
-            df['collected_date'] = pd.to_datetime(df['collected_date'])
+            df["collected_date"] = pd.to_datetime(df["collected_date"])
 
             # 새 데이터와 기존 데이터 병합 후 중복 제거
             combined_df = pd.concat([existing_df, df]).drop_duplicates(
