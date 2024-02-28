@@ -113,8 +113,9 @@ def naver_review_crawling(**kwargs):
     naver_review_id = []
     naver_review_date = []
     naver_review_time = []
+    naver_review_score = []
 
-    file_list = kwargs["ti"].xcom_pull(task_ids="read_s3_filelist")
+    file_list = read_s3_filelist()
     movies = kwargs["ti"].xcom_pull(task_ids="s3_to_300movie_list")
 
     options = Options()
@@ -189,12 +190,13 @@ def naver_review_crawling(**kwargs):
                     )
 
                     # 리뷰 파일
-                    if review_score == "10":
+                    if review_score == "10" or review_score == "1":
                         movie_nm.append(movie)
                         naver_review_id.append(review_id)
                         naver_review_date.append(review_date)
                         naver_review_time.append(review_time)
                         naver_reviews.append(review_content)
+                        naver_review_score.append(review_score)
 
         except Exception as e:
             logging.info(f"에러 {e} 발생")
@@ -209,6 +211,7 @@ def naver_review_crawling(**kwargs):
             "naver_review": naver_reviews,
             "review_date": naver_review_date,
             "review_date_time": naver_review_time,
+            "review_score": naver_review_score,
         }
     )
 
@@ -231,9 +234,6 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
-    read_s3_filelist = PythonOperator(
-        task_id="read_s3_filellist", python_callable=read_s3_filelist, dag=dag
-    )
     s3_to_300movie_list = PythonOperator(
         task_id="s3_to_300movie_list", python_callable=s3_to_300movie_list, dag=dag
     )
@@ -241,4 +241,4 @@ with DAG(
         task_id="naver_review_crawling", python_callable=naver_review_crawling, dag=dag
     )
 
-    read_s3_filelist >> s3_to_300movie_list >> naver_review_crawling
+    s3_to_300movie_list >> naver_review_crawling
