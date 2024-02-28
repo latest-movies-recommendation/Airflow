@@ -225,7 +225,9 @@ def upload_to_s3(title, df):
             logging.info(f"존재하는 파일이 있습니다. :{file_name}")
             print("111111")
             # 기존 데이터프레임의 'collected_date' 열을 datetime 타입으로 변환
-            existing_df["collected_date"] = pd.to_datetime(existing_df["collected_date"])
+            existing_df["collected_date"] = pd.to_datetime(
+                existing_df["collected_date"]
+            )
             print("222222")
             # 새 데이터프레임의 'collected_date' 열도 datetime 타입으로 변환
             df["collected_date"] = pd.to_datetime(df["collected_date"])
