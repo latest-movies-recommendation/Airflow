@@ -681,6 +681,11 @@ with DAG(
         python_callable=naver_info_crawling,
         dag=dag,
     )
+    critic_review_crawling = PythonOperator(
+        task_id="critic_review_crawling",
+        python_callable=critic_review_crawling,
+        dag=dag,
+    )
     upload_image_to_s3 = PythonOperator(
         task_id="upload_image_to_s3",
         python_callable=upload_image_to_s3,
@@ -692,4 +697,5 @@ with DAG(
         dag=dag,
     )
     s3_to_rank_movie_list, s3_to_naver_movie_list >> naver_info_crawling >> upload_image_to_s3
-    upload_image_to_s3 >> naver_review_crawling
+    upload_image_to_s3 >> critic_review_crawling
+    critic_review_crawling >> naver_review_crawling
