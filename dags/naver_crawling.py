@@ -10,6 +10,7 @@ from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -215,7 +216,7 @@ def naver_info_crawling(**kwargs):
     movie_countries = []
 
     # s3 파일명 리스트
-    file_list = kwargs["ti"].xcom_pull(task_ids="read_s3_filelist")
+    file_list = read_s3_filelist()
     # 영진위 영화 리스트 1~10위
     movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
     # s3에 있는 영화 정보 파일에 이미 존재하는 영화들 => 영화 정보 안 뽑아도 되고 리뷰의 경우 모든 리뷰가 아니라 오늘의 리뷰만 뽑아서 기존파일에 덧붙이기
@@ -244,8 +245,8 @@ def naver_info_crawling(**kwargs):
             more_button_xpath = "/html/body/div[3]/div[2]/div/div[1]/div[2]/div[2]/div[2]/div/div[1]/div/a"
             driver.find_element(By.XPATH, more_button_xpath).click()
             driver.implicitly_wait(2)
-        except Exception as e:
-            logging.info(f"{e} 에러 발생")
+        except NoSuchElementException:
+            pass
 
         movie_info_tab = driver.find_element(By.CLASS_NAME, "cm_content_wrap")
 
@@ -275,7 +276,7 @@ def naver_info_crawling(**kwargs):
                     "div > div.detail_info > dl > div:nth-child(2) > dd",
                 )
                 movie_groups.append(movie_group.text)
-            except Exception:
+            except NoSuchElementException:
                 movie_groups.append("모름")
 
             try:
@@ -284,7 +285,7 @@ def naver_info_crawling(**kwargs):
                     "div > div.detail_info > dl > div:nth-child(3) > dd",
                 )
                 movie_genres.append(movie_genre.text)
-            except Exception:
+            except NoSuchElementException:
                 movie_genres.append("모름")
 
             try:
@@ -293,7 +294,7 @@ def naver_info_crawling(**kwargs):
                     "div > div.detail_info > dl > div:nth-child(4) > dd",
                 )
                 movie_countries.append(movie_country.text)
-            except Exception:
+            except NoSuchElementException:
                 movie_countries.append("모름")
 
             try:
@@ -302,7 +303,7 @@ def naver_info_crawling(**kwargs):
                     "div > div.detail_info > dl > div:nth-child(5) > dd",
                 )
                 movie_times.append(movie_time.text)
-            except Exception:
+            except NoSuchElementException:
                 movie_times.append("모름")
 
             try:
@@ -311,9 +312,9 @@ def naver_info_crawling(**kwargs):
                     "div > div.detail_info > dl > div:nth-child(6) > dd",
                 )
                 movie_companies.append(movie_company.text)
-            except Exception:
+            except NoSuchElementException:
                 movie_companies.append("모름")
-        except Exception:
+        except NoSuchElementException:
             movie_stories.append("영화 정보를 찾을 수 없습니다.")
 
         driver.get("https://www.naver.com")
@@ -379,7 +380,7 @@ def critic_review_crawling(**kwargs):
                     tab.find_element(By.TAG_NAME, "a").click()
                     time.sleep(1)
                     break
-        except Exception:
+        except NoSuchElementException:
             info_critic_score.append("아직 평점 없음")
             driver.get("https://www.naver.com")
             continue
@@ -430,7 +431,7 @@ def critic_review_crawling(**kwargs):
                 try:
                     e.find_element(By.XPATH, review_button).click()
                     e.implicitly_wait(2)
-                except Exception:
+                except NoSuchElementException:
                     pass
 
                 review_path = "div[3]/span"
@@ -458,7 +459,7 @@ def critic_review_crawling(**kwargs):
                 critic_review_df,
                 f"naver/naver-critic-reviews/{movie}_critic_review.csv",
             )
-        except Exception:
+        except NoSuchElementException:
             info_critic_score.append("평점 없음")
         driver.get("https://www.naver.com")
 
@@ -485,9 +486,10 @@ def naver_review_crawling(**kwargs):
     naver_review_id = []
     naver_review_date = []
     naver_review_time = []
+    naver_review_score = []
 
     # s3 파일명 리스트
-    file_list = kwargs["ti"].xcom_pull(task_ids="read_s3_filelist")
+    file_list = read_s3_filelist()
     # 영진위 영화 리스트 1~10위
     movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
     critic_score = kwargs["ti"].xcom_pull(task_ids="critic_review_crawling")
@@ -590,12 +592,13 @@ def naver_review_crawling(**kwargs):
                     movie_score.append(review_score)
 
                     # 리뷰 파일
-                    if review_score == "10":
+                    if review_score == "10" or review_score == "1":
                         movie_nm.append(movie)
                         naver_review_id.append(review_id)
                         naver_review_date.append(review_date)
                         naver_review_time.append(review_time)
                         naver_reviews.append(review_content)
+                        naver_review_score.append(review_score)
 
             movie_review = pd.DataFrame(
                 {
@@ -625,6 +628,7 @@ def naver_review_crawling(**kwargs):
             "naver_review": naver_reviews,
             "review_date": naver_review_date,
             "review_date_time": naver_review_time,
+            "review_score": naver_review_score,
         }
     )
 
@@ -638,10 +642,10 @@ def naver_review_crawling(**kwargs):
         }
     )
 
-    if "naver/naver_daily_reviews.csv" in file_list:
-        update_s3_file(naver_movie_reviews, "naver/naver_daily_reviews.csv")
+    if "naver/naver_reviews.csv" in file_list:
+        update_s3_file(naver_movie_reviews, "naver/naver_reviews.csv")
     else:
-        upload_to_s3(naver_movie_reviews, "naver/naver_daily_reviews.csv")
+        upload_to_s3(naver_movie_reviews, "naver/naver_reviews.csv")
 
     if "naver/naver_movie_score.csv" in file_list:
         update_s3_score_file(
@@ -664,9 +668,6 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
-    read_s3_filelist = PythonOperator(
-        task_id="read_s3_filellist", python_callable=read_s3_filelist, dag=dag
-    )
     s3_to_rank_movie_list = PythonOperator(
         task_id="s3_to_rank_movie_list", python_callable=s3_to_rank_movie_list, dag=dag
     )
@@ -690,5 +691,5 @@ with DAG(
         python_callable=naver_review_crawling,
         dag=dag,
     )
-    read_s3_filelist >> s3_to_rank_movie_list, s3_to_naver_movie_list >> naver_info_crawling >> upload_image_to_s3
+    s3_to_rank_movie_list, s3_to_naver_movie_list >> naver_info_crawling >> upload_image_to_s3
     upload_image_to_s3 >> naver_review_crawling
