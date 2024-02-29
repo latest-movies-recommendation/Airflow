@@ -11,12 +11,6 @@ from airflow.operators.dagrun_operator import TriggerDagRunOperator
 from airflow.operators.python import PythonOperator
 
 
-def trigger_daily_office(dag_run_obj):
-    # 이 함수를 실행하면 'daily_office' DAG를 트리거합니다.
-    dag_run_obj.payload = {"message": "Triggered by daily_box_office_rds DAG"}
-    return dag_run_obj
-
-
 def daily_filename():
     day = date.today() - timedelta(1)
     ymd = day.strftime("%Y%m%d")
