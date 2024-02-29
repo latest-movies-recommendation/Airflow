@@ -6,8 +6,10 @@ from urllib.request import urlopen
 
 import pandas as pd
 from airflow import DAG
+from airflow.hooks.postgres_hook import PostgresHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
+from airflow.operators.dagrun_operator import TriggerDagRunOperator
 from airflow.operators.python import PythonOperator
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
@@ -15,6 +17,12 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+
+
+def trigger_naver(dag_run_obj):
+    # 이 함수를 실행하면 'daily_office' DAG를 트리거합니다.
+    dag_run_obj.payload = {"message": "Triggered by daily_box_office_rds DAG"}
+    return dag_run_obj
 
 
 # s3에서 파일 리스트 불러오기 =>리뷰 파일/영화 정보 파일이 있는지 확인 위함
@@ -430,7 +438,7 @@ def critic_review_crawling(**kwargs):
                 review_button = "div[3]/button"
                 try:
                     e.find_element(By.XPATH, review_button).click()
-                    e.implicitly_wait(2)
+                    time.sleep(1)
                 except NoSuchElementException:
                     pass
 
@@ -655,6 +663,56 @@ def naver_review_crawling(**kwargs):
         upload_to_s3(naver_movie_score, "naver/naver_movie_score.csv")
 
 
+def s3_to_postgres():
+    s3 = S3Hook(aws_conn_id="aws_conn")
+    bucket_name = Variable.get("s3_bucket_name")
+
+    s3_key = "naver/naver_info.csv"
+
+    # S3에서 CSV 파일 읽기
+    obj = s3.get_key(key=s3_key, bucket_name=bucket_name)
+    if obj:
+        csv_data = obj.get()["Body"].read().decode("utf-8")
+        s3_dataframe = pd.read_csv(StringIO(csv_data))
+        data = s3_dataframe.where(pd.notnull(s3_dataframe), None)
+
+    # PostgreSQL Hook을 사용하여 연결
+    postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
+    conn = postgres_hook.get_conn()
+    cur = conn.cursor()
+
+    try:
+        # 테이블이 이미 존재하는지 확인
+        check_table_query = "SELECT to_regclass('movie_info')"
+        cur.execute(check_table_query)
+        result = cur.fetchone()[0]
+
+        if result is None:
+            # 테이블이 존재하지 않으면 새로운 테이블 생성
+            create_table_query = f'CREATE TABLE movie_info ({", ".join(f"{col} VARCHAR" for col in data.columns)})'
+            cur.execute(create_table_query)
+            logging.info("Table movie_info created.")
+
+        # 테이블에 데이터가 있으면 지우고 삽입하도록 설정
+        if not data.empty:
+            delete_query = "DELETE FROM movie_info"
+            cur.execute(delete_query)
+
+        insert_query = f"INSERT INTO movie_info ({', '.join(data.columns)}) VALUES ({', '.join(['%s'] * len(data.columns))})"
+        for _, row in data.iterrows():
+            cur.execute(insert_query, tuple(row))
+            logging.info("SQL insert start")
+
+        conn.commit()
+        logging.info("Data successfully inserted into PostgreSQL RDS.")
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        conn.rollback()
+    finally:
+        cur.close()
+        conn.close()
+
+
 default_args = {
     "start_date": datetime(2024, 2, 18),
     "retries": 1,
@@ -663,11 +721,16 @@ default_args = {
 
 with DAG(
     dag_id="naver_crawler",
-    schedule_interval="00 18 * * *",
+    schedule_interval=None,
     catchup=False,
     default_args=default_args,
 ) as dag:
 
+    trigger_naver = TriggerDagRunOperator(
+        task_id="trigger_naver",
+        python_callable=trigger_naver,
+        trigger_dag_id="daily_box_office_elt",
+    )
     s3_to_rank_movie_list = PythonOperator(
         task_id="s3_to_rank_movie_list", python_callable=s3_to_rank_movie_list, dag=dag
     )
@@ -696,6 +759,13 @@ with DAG(
         python_callable=naver_review_crawling,
         dag=dag,
     )
-    s3_to_rank_movie_list, s3_to_naver_movie_list >> naver_info_crawling >> upload_image_to_s3
+    s3_to_postgres = PythonOperator(
+        task_id="s3_to_postgres",
+        python_callable=s3_to_postgres,
+        dag=dag,
+    )
+    trigger_naver >> s3_to_rank_movie_list, s3_to_naver_movie_list
+    s3_to_rank_movie_list, s3_to_naver_movie_list >> naver_info_crawling
+    naver_info_crawling >> s3_to_postgres >> upload_image_to_s3
     upload_image_to_s3 >> critic_review_crawling
     critic_review_crawling >> naver_review_crawling
