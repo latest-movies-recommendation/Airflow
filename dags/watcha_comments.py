@@ -134,53 +134,6 @@ def scraping_watcha(**kwargs):
         logging.info("리턴받은 제목 없음.")
 
 
-# 전체 페이지를 스크롤
-# def page_scrolling(driver):
-#     scroll_location = driver.execute_script("return document.body.scrollHeight")
-#     cnt = 0
-#     try:
-#         while True:
-#             cnt += 1
-#             # 현재 스크롤의 가장 아래로 내림
-#             driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
-#
-#             # 전체 스크롤이 늘어날 때까지 대기
-#             driver.implicitly_wait(10)
-#
-#             # 늘어난 스크롤 높이
-#             scroll_height = driver.execute_script("return document.body.scrollHeight")
-#
-#             # 늘어난 스크롤 위치와 이동 전 위치 같으면(더 이상 스크롤이 늘어나지 않으면) 종료
-#             if scroll_location == scroll_height:
-#                 break
-#
-#             # 같지 않으면 스크롤 위치 값을 수정하여 같아질 때까지 반복
-#             else:
-#                 # 스크롤 위치값을 수정
-#                 scroll_location = driver.execute_script(
-#                     "return document.body.scrollHeight"
-#                 )
-#             logging.info(f"스크롤링 {cnt}회")
-#     except Exception as e:
-#         logging.info(f"스크롤링 실패: {e}")
-
-
-# 약 200개의 리뷰가 있는 위치까지 스크롤링
-# def page_scrolling(driver, target_height=73122):
-#     cnt = 0
-#     try:
-#         while True:
-#             cnt += 1
-#             driver.execute_script("window.scrollTo(0, window.pageYOffset + 500);")
-#             driver.implicitly_wait(10)
-#             scroll_height = driver.execute_script("return document.body.scrollHeight")
-#             if scroll_height >= target_height:
-#                 break
-#             logging.info(f"스크롤링 {cnt}회")
-#     except Exception as e:
-#         logging.info(f"스크롤링 실패: {e}")
-
-
 def page_scrolling(driver, target_height=73122, max_attempts=300):
     cnt = 0
     try:
@@ -211,7 +164,7 @@ def upload_to_s3(title, df):
     # 파일 제목에 들어가서는 안 되는 문자 제거
     safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
     file_name = f"{safe_title}.csv"
-    key = f"watcha/{file_name}"
+    key = f"watcha/movies/{file_name}"
     s3_hook = S3Hook(aws_conn_id="aws_conn")
     s3_bucket_name = Variable.get("s3_bucket_name")
 
@@ -271,51 +224,6 @@ def upload_to_s3(title, df):
             replace=True,
         )
         logging.info(f"{file_name} S3에 신규 업로드 완료!")
-
-
-# def upload_to_s3(title, df):
-#     # 파일 제목에 들어가서는 안 되는 문자 제거
-#     safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
-#     file_name = f"{safe_title}.csv"
-#     logging.info(df)
-#     key = f"watcha/{file_name}"
-#     s3_hook = S3Hook(aws_conn_id="aws_conn")
-#
-#     # 기존 파일이 있는지 확인
-#     try:
-#         existing_df = pd.read_csv(f"s3://{Variable.get('s3_bucket_name')}/{key}")
-#         logging.info(f"존재하는 파일이 있습니다. :{file_name}")
-#
-#         merged_df = pd.concat([existing_df, df], ignore_index=True)
-#         # 중복되지 않는 데이터만 선택
-#         new_data = merged_df.drop_duplicates(keep=False)
-#
-#         # S3에 업로드
-#         logging.info(f"Uploading {file_name} to s3")
-#         s3_hook.load_string(
-#             string_data=get_csv_string(new_data),
-#             key=key,
-#             bucket_name=Variable.get("s3_bucket_name"),
-#             replace=True,
-#         )  # 동일한 키가 있을 경우 덮어쓰기 설정
-#         logging.info(f"{file_name} S3에 업로드 완료!")
-#
-#     except Exception as e:
-#         # 기존 파일이 없는 경우
-#         logging.info(f"존재하는 {file_name} 파일이 없습니다. 새로 업로드합니다.{e}")
-#
-#         # S3에 업로드
-#         try:
-#             logging.info(f"Uploading {file_name} to S3")
-#             s3_hook.load_string(
-#                 string_data=get_csv_string(df),
-#                 key=key,
-#                 bucket_name=Variable.get("s3_bucket_name"),
-#                 replace=True,
-#             )  # 동일한 키가 있을 경우 덮어쓰기 설정
-#             logging.info(f"{file_name} S3에 업로드 완료!")
-#         except Exception as e:
-#             logging.info(f"신규 {file_name} 파일 업로드 에러: {e}")
 
 
 dag = DAG(
