@@ -2,7 +2,6 @@ import logging
 import time
 from datetime import date, datetime, timedelta
 from io import StringIO
-from urllib.request import urlopen
 
 import pandas as pd
 from airflow import DAG
@@ -118,29 +117,6 @@ def update_s3_score_file(dataframe, s3_key, movies):
         logging.error(f"S3에 데이터를 추가하는 데 실패했습니다: {e}")
 
 
-# 이미지 s3 저장하기
-def upload_image_to_s3(**kwargs):
-    s3 = S3Hook(aws_conn_id="aws_conn")
-    dic = kwargs["ti"].xcom_pull(task_ids="naver_info_crawling")
-
-    for movie, poster_src in dic.items():
-        image_data = urlopen(poster_src).read()
-
-        bucket_name = Variable.get("s3_bucket_name")
-        file_name = f"naver/naver-images/{movie}.jpg"
-
-        try:
-            s3.load_bytes(
-                bytes_data=image_data,
-                key=file_name,
-                bucket_name=bucket_name,
-                replace=True,
-            )
-            logging.info(f"{movie} 이미지를 S3에 성공적으로 업로드했습니다.")
-        except Exception as e:
-            logging.error(f"S3에 이미지를 업로드하는 중 오류 발생: {e}")
-
-
 # s3에 있는 영진위 파일에서 영화 제목 추출하기
 def s3_to_rank_movie_list():
     try:
@@ -209,7 +185,7 @@ def naver_info_crawling(**kwargs):
 
     driver = webdriver.Chrome(options=options)
 
-    movie_posters = {}
+    movie_posters = []
     movie_stories = []
     movie_groups = []
     movie_companies = []
@@ -270,7 +246,7 @@ def naver_info_crawling(**kwargs):
                 By.CSS_SELECTOR, "div > div.detail_info > a > img"
             )
             poster_src = movie_poster.get_attribute("src")
-            movie_posters[movie] = poster_src
+            movie_posters.append(poster_src)
 
             try:
                 movie_group = movie_info.find_element(
@@ -330,6 +306,7 @@ def naver_info_crawling(**kwargs):
             "country": movie_countries,
             "running_time": movie_times,
             "company": movie_companies,
+            "poster": movie_posters,
         }
     )
 
@@ -742,11 +719,6 @@ with DAG(
         python_callable=critic_review_crawling,
         dag=dag,
     )
-    upload_image_to_s3 = PythonOperator(
-        task_id="upload_image_to_s3",
-        python_callable=upload_image_to_s3,
-        dag=dag,
-    )
     naver_review_crawling = PythonOperator(
         task_id="naver_review_crawling",
         python_callable=naver_review_crawling,
@@ -759,6 +731,6 @@ with DAG(
     )
     trigger_naver >> s3_to_rank_movie_list, s3_to_naver_movie_list
     s3_to_rank_movie_list, s3_to_naver_movie_list >> naver_info_crawling
-    naver_info_crawling >> s3_to_postgres >> upload_image_to_s3
-    upload_image_to_s3 >> critic_review_crawling
+    naver_info_crawling >> s3_to_postgres
+    s3_to_postgres >> critic_review_crawling
     critic_review_crawling >> naver_review_crawling
