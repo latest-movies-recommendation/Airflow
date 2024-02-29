@@ -198,8 +198,8 @@ def naver_review_crawling(**kwargs):
                         naver_reviews.append(review_content)
                         naver_review_score.append(review_score)
 
-        except Exception as e:
-            logging.info(f"에러 {e} 발생")
+        except Exception:
+            pass
 
         driver.get("https://www.naver.com")
 

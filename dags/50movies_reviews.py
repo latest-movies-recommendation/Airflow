@@ -9,6 +9,7 @@ from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -96,7 +97,7 @@ def s3_to_300movie_list():
             if "MOVIENM" not in df.columns:
                 raise ValueError("MOVIENM 컬럼이 데이터프레임에 존재하지 않습니다.")
             # 영진위 1-10위 영화
-            movies = df["MOVIENM"].tolist()[300:350]
+            movies = df["MOVIENM"].tolist()[:100]
             logging.info(movies)
             return movies
         else:
@@ -198,8 +199,8 @@ def naver_review_crawling(**kwargs):
                         naver_reviews.append(review_content)
                         naver_review_score.append(review_score)
 
-        except Exception as e:
-            logging.info(f"에러 {e} 발생")
+        except NoSuchElementException:
+            pass
 
         driver.get("https://www.naver.com")
 
