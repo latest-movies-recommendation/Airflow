@@ -96,7 +96,7 @@ with DAG(
 ) as dag:
 
     trigger_daily_office_task = TriggerDagRunOperator(
-        task_id="trigger_daily_office",
+        task_id="trigger_daily_office_task",
         trigger_dag_id="daily_box_office_elt",
     )
 

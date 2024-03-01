@@ -119,6 +119,7 @@ def update_s3_score_file(dataframe, s3_key, movies):
 
 # s3에 있는 영진위 파일에서 영화 제목 추출하기
 def s3_to_rank_movie_list():
+    movies = {}
     try:
         s3 = S3Hook(aws_conn_id="aws_conn")
         obj = s3.get_key(
@@ -131,8 +132,9 @@ def s3_to_rank_movie_list():
             if "movieNm" not in df.columns:
                 raise ValueError("movieNm 컬럼이 데이터프레임에 존재하지 않습니다.")
             # 영진위 1-10위 영화
-            movies = df["movieNm"].tolist()[-10:]
-            logging.info(movies)
+            df_last_10 = df.tail(10)
+            for _, row in df_last_10.iterrows():
+                movies[row["movieCd"]] = row["movieNm"]
             return movies
         else:
             return None
@@ -185,6 +187,8 @@ def naver_info_crawling(**kwargs):
 
     driver = webdriver.Chrome(options=options)
 
+    movieNm = []
+    movieCd = []
     movie_posters = []
     movie_stories = []
     movie_groups = []
@@ -199,12 +203,17 @@ def naver_info_crawling(**kwargs):
     movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
     # s3에 있는 영화 정보 파일에 이미 존재하는 영화들 => 영화 정보 안 뽑아도 되고 리뷰의 경우 모든 리뷰가 아니라 오늘의 리뷰만 뽑아서 기존파일에 덧붙이기
     naver_info_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
-    new_movies = list(set(movie_ranking_ten) - set(naver_info_movies))
+
+    for k, v in movie_ranking_ten.items():
+        if v in naver_info_movies:
+            continue
+        movieCd.append(k)
+        movieNm.append(v)
 
     driver.get("https://www.naver.com")
     driver.implicitly_wait(2)
 
-    for movie in new_movies:
+    for movie in movieNm:
         # 줄거리, 이미지 정보 크롤링
         movie_info_search = f"영화 {movie} 정보"
 
@@ -226,9 +235,8 @@ def naver_info_crawling(**kwargs):
         except NoSuchElementException:
             pass
 
-        movie_info_tab = driver.find_element(By.CLASS_NAME, "cm_content_wrap")
-
         try:
+            movie_info_tab = driver.find_element(By.CLASS_NAME, "cm_content_wrap")
             # 영화 줄거리 추출
             movie_story_selector = "div.cm_content_area._cm_content_area_synopsis > div > div.intro_box._content > p"
             movie_story = movie_info_tab.find_element(
@@ -299,7 +307,8 @@ def naver_info_crawling(**kwargs):
 
     naver_info_df = pd.DataFrame(
         {
-            "movie": new_movies,
+            "movieNm": movieNm,
+            "movieCd": movieCd,
             "story": movie_stories,
             "group": movie_groups,
             "genre": movie_genres,
@@ -329,11 +338,18 @@ def critic_review_crawling(**kwargs):
 
     movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
 
-    info_critic_score = []
+    movieNm = []
+    movieCd = []
+
+    for k, v in movie_ranking_ten.items():
+        movieCd.append(k)
+        movieNm.append(v)
+
+    info_critic_score = {}
     driver.get("https://www.naver.com")
     driver.implicitly_wait(2)
 
-    for movie in movie_ranking_ten:
+    for movie, code in zip(movieNm, movieCd):
         name = []
         critic_review = []
         critic_score = []
@@ -422,12 +438,14 @@ def critic_review_crawling(**kwargs):
                 logging.info(critic_review)
                 logging.info(critic_score)
 
-            info_critic_score.append(str(num / len(critic_score)))
+            final_score = round((num / len(critic_score)), 1)
+            info_critic_score[movie] = final_score
             logging.info(f"평점:{info_critic_score}")
 
             critic_review_df = pd.DataFrame(
                 {
                     "movie": [movie] * len(name),
+                    "movieCd": [code] * len(name),
                     "name": name,
                     "review": critic_review,
                     "score": critic_score,
@@ -470,13 +488,24 @@ def naver_review_crawling(**kwargs):
     # s3 파일명 리스트
     file_list = read_s3_filelist()
     # 영진위 영화 리스트 1~10위
-    movie_ranking_ten = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
+    dic = kwargs["ti"].xcom_pull(task_ids="s3_to_rank_movie_list")
+    movies = dict(map(reversed, dic.items()))  # key에 영화명, value에 영화코드
+
     critic_score = kwargs["ti"].xcom_pull(task_ids="critic_review_crawling")
+
+    movieNm = []
+    movieCd = []
+    movie_critic_score = []
+
+    for k, v in critic_score.items():
+        movieCd.append(movies.get(k))
+        movieNm.append(k)
+        movie_critic_score.append(v)
 
     driver.get("https://www.naver.com")
     driver.implicitly_wait(2)
     # 영화 리뷰, 평점 크롤링
-    for movie in movie_ranking_ten:
+    for movie in movieNm:
         # 영화별 댓글 추출
         movie_review = []
         movie_review_date = []
@@ -602,7 +631,7 @@ def naver_review_crawling(**kwargs):
     # 영화 리뷰 dataframe
     naver_movie_reviews = pd.DataFrame(
         {
-            "movie": movie_nm,
+            "movieNm": movie_nm,
             "id": naver_review_id,
             "naver_review": naver_reviews,
             "review_date": naver_review_date,
@@ -613,11 +642,12 @@ def naver_review_crawling(**kwargs):
 
     naver_movie_score = pd.DataFrame(
         {
-            "movie": movie_ranking_ten,
+            "movieNm": movieNm,
+            "movieCd": movieCd,
             "entire_grade": naver_grades,
             "male_grade": naver_male_grades,
             "female_grade": naver_female_grades,
-            "critic_grade": critic_score,
+            "critic_grade": movie_critic_score,
         }
     )
 
@@ -627,9 +657,7 @@ def naver_review_crawling(**kwargs):
         upload_to_s3(naver_movie_reviews, "naver/naver_reviews.csv")
 
     if "naver/naver_movie_score.csv" in file_list:
-        update_s3_score_file(
-            naver_movie_score, "naver/naver_movie_score.csv", movie_ranking_ten
-        )
+        update_s3_score_file(naver_movie_score, "naver/naver_movie_score.csv", movieNm)
     else:
         upload_to_s3(naver_movie_score, "naver/naver_movie_score.csv")
 
