@@ -24,8 +24,8 @@ dag = DAG(
 
 trigger_glue_job = GlueJobOperator(
     task_id='trigger_glue_job',
-    job_name='S3-test-job', # AWS Glue에서 생성한 Job 이름으로 교체해야 합니다.
-    script_location='s3://aws-glue-assets-654654507336-ap-northeast-2/scripts/your_script_name.py', # 실제 스크립트 파일 이름으로 교체해야 합니다.
+    job_name='S3-test-job',   # AWS Glue에서 생성한 Job 이름으로 교체해야 합니다.
+    script_location='s3://aws-glue-assets-654654507336-ap-northeast-2/scripts/your_script_name.py',   # 실제 스크립트 파일 이름으로 교체해야 합니다.
     aws_conn_id='aws_conn',
     region_name='ap-northeast-2',
     dag=dag,
