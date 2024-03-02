@@ -1,8 +1,7 @@
-# IAM: EC2 인스턴스에 AWSGlueConsoleFullAccess, S3FullAccess 부여 필수
-# 수정해야 함.
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
-from datetime import datetime, timedelta
 
 default_args = {
     "owner": "airflow",
@@ -30,5 +29,3 @@ trigger_glue_job = GlueJobOperator(
     region_name="ap-northeast-2",
     dag=dag,
 )
-
-trigger_glue_job
