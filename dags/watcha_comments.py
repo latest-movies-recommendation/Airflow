@@ -20,7 +20,7 @@ def yesterday_date():
     return now.strftime("%Y%m%d")
 
 
-def get_daily_box_office(ti, **kwargs):
+def get_daily_box_office(ti):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
     s3_key = f"kofic/daily-box-office/{yesterday_date()}.csv"
     try:
