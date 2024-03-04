@@ -44,7 +44,6 @@ def daily_movie_ratings_dag():
                 key=s3_key, bucket_name=Variable.get("s3_bucket_name")
             )
             if obj:
-                # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
                 csv_data = obj.get()["Body"].read().decode("utf-8")
                 naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :2]
                 # 영화 제목 형식 통일
@@ -73,11 +72,8 @@ def daily_movie_ratings_dag():
         for title in titles:
             # 제목을 파일 이름으로 변환하여 S3 버킷에서 파일 찾기
             file_key = f"watcha/movies/{title}.csv"
-            logging.info("111111")
-            logging.info(f"{file_key}")
             # S3 버킷에서 파일 존재 여부 확인
             if s3_hook.check_for_key(file_key, bucket_name):
-                logging.info("222222")
                 # 파일이 존재하는 경우, 가져오기
                 obj = s3_hook.get_key(key=file_key, bucket_name=bucket_name)
                 csv_data = obj.get()["Body"].read().decode("utf-8")
@@ -88,8 +84,7 @@ def daily_movie_ratings_dag():
                 # 10점 만점이 되도록 평점 조정 후 딕셔너리에 저장
                 watcha_ratings[title] = average_rating * 2
             else:
-                logging.info("333333")
-                print(f"No CSV file found for {title}")
+                logging.info(f"{title} 파일이 존재하지 않습니다.")
         return json.dumps(watcha_ratings)
 
     @task
@@ -105,7 +100,6 @@ def daily_movie_ratings_dag():
         )
         merged_df = pd.merge(naver_ratings, watcha_rating_df, on="movie", how="left")
 
-        # CSV 파일로 저장
         merged_csv_path = "/tmp/merged_movie_ratings.csv"
         merged_df.to_csv(merged_csv_path, index=False)
 
