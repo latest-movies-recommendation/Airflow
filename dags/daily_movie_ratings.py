@@ -5,9 +5,11 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
+import sqlalchemy
 from airflow.decorators import dag, task
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 
 def format_movie_titles(df):
@@ -32,46 +34,41 @@ default_args = {
     schedule_interval="10 1 * * *",
     catchup=False,
 )
-def daily_movie_ratings():
-
+def daily_movie_ratings_dag():
     @task
-    def get_naver_ratings(ti):
+    def get_naver_ratings():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
-        s3_key = "naver/naver_reviews.csv"
+        s3_key = "naver/naver_movie_score.csv"
         try:
             obj = s3_hook.get_key(
                 key=s3_key, bucket_name=Variable.get("s3_bucket_name")
             )
             if obj:
-                # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
                 csv_data = obj.get()["Body"].read().decode("utf-8")
                 naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :2]
                 # 영화 제목 형식 통일
                 naver_rating_formatted = format_movie_titles(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
-                ti.xcom_push(
-                    key="naver_ratings",
-                    value=naver_rating_formatted.to_json(orient="split"),
-                )
-                logging.info(naver_rating_formatted)
-                movies = naver_rating_formatted.iloc[:, 0].tolist()
-                ti.xcom_push(key="movies_title", value=movies)
-                logging.info(movies)
-                return movies
+                return naver_rating_formatted.to_json(orient="split")
             else:
                 logging.info(f"S3에 {s3_key} 파일이 없습니다.")
                 return None
         except Exception as e:
-            logging.info(f"S3로부터 데이터를 로드하는 데 실패했습니다.: {e}")
+            logging.error(f"S3로부터 데이터를 로드하는 데 실패했습니다.: {e}")
+            return None
 
     @task
-    def get_watcha_ratings(ti):
-        titles = ti.xcom_pull(task_ids="get_naver_ratings", key="movies_title")
+    def get_watcha_ratings(naver_ratings_json):
+        if naver_ratings_json is None:
+            logging.info("NAVER 평점 데이터가 없으므로 Watcha 평점 수집을 건너뜁니다.")
+            return None
+        naver_ratings = pd.read_json(naver_ratings_json, orient="split")
+        titles = naver_ratings.iloc[:, 0].tolist()
+
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
-
-        # 영화 제목과 평점을 매핑하는 딕셔너리
         watcha_ratings = {}
+
         for title in titles:
             # 제목을 파일 이름으로 변환하여 S3 버킷에서 파일 찾기
             file_key = f"watcha/movies/{title}.csv"
@@ -80,38 +77,73 @@ def daily_movie_ratings():
                 # 파일이 존재하는 경우, 가져오기
                 obj = s3_hook.get_key(key=file_key, bucket_name=bucket_name)
                 csv_data = obj.get()["Body"].read().decode("utf-8")
-                average_rating = pd.read_csv(StringIO(csv_data)).iloc[:, 3].mean()
+                score_df = pd.read_csv(StringIO(csv_data)).iloc[:, 3]
+                numeric_df = pd.to_numeric(score_df, errors="coerce")
+                numeric_df.dropna(inplace=True)
+                average_rating = numeric_df.mean()
                 # 10점 만점이 되도록 평점 조정 후 딕셔너리에 저장
                 watcha_ratings[title] = average_rating * 2
             else:
-                print(f"No CSV file found for {title}")
-
-        ti.xcom_push(key="watcha_ratings", value=json.dumps(watcha_ratings))
+                logging.info(f"{title} 파일이 존재하지 않습니다.")
+        return json.dumps(watcha_ratings)
 
     @task
-    def merge_ratings(ti):
-        naver_ratings_json = ti.xcom_pull(
-            task_ids="get_naver_ratings", key="naver_ratings"
-        )
+    def merge_ratings(naver_ratings_json, watcha_ratings_json):
+        if naver_ratings_json is None or watcha_ratings_json is None:
+            logging.info("필요한 평점 데이터가 없어 병합을 수행할 수 없습니다.")
+            return None
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
-
-        watcha_ratings_json = ti.xcom_pull(
-            task_ids="get_watcha_ratings", key="watcha_ratings"
-        )
         watcha_ratings = json.loads(watcha_ratings_json)
 
-        # `watcha_ratings` 딕셔너리를 DataFrame으로 변환
         watcha_rating_df = pd.DataFrame(
             list(watcha_ratings.items()), columns=["movie", "watcha_rating"]
         )
-
-        # 두 DataFrame을 'movie' 컬럼을 기준으로 합치기
         merged_df = pd.merge(naver_ratings, watcha_rating_df, on="movie", how="left")
-        logging.info(merged_df)
 
-        return merged_df
+        merged_csv_path = "/tmp/merged_movie_ratings.csv"
+        merged_df.to_csv(merged_csv_path, index=False)
 
-    get_naver_ratings >> get_watcha_ratings >> merge_ratings
+        # 저장된 파일 경로를 반환
+        return merged_csv_path
+
+    @task
+    def upload_to_postgres(merged_csv_path):
+        if merged_csv_path is None:
+            logging.info("병합된 평점 데이터 파일이 제공되지 않았습니다.")
+            return
+
+        # CSV 파일에서 DataFrame 로드
+        merged_df = pd.read_csv(merged_csv_path)
+
+        # 'entire_grade' 컬럼을 'naver_rating'으로 간주하고, 데이터 타입을 float으로 변환
+        merged_df["entire_grade"] = merged_df["entire_grade"].astype(float)
+        merged_df["watcha_rating"] = merged_df["watcha_rating"].astype(float)
+
+        # PostgresHook 사용
+        postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
+        engine = postgres_hook.get_sqlalchemy_engine()
+
+        # DataFrame을 SQL 테이블에 삽입
+        merged_df.rename(columns={"entire_grade": "naver_rating"}, inplace=True)
+
+        merged_df.to_sql(
+            "daily_movie_ratings",
+            engine,
+            if_exists="replace",
+            index=False,
+            method="multi",
+            dtype={
+                "movie_name": sqlalchemy.types.VARCHAR(),
+                "naver_rating": sqlalchemy.types.Float(precision=3),
+                "watcha_rating": sqlalchemy.types.Float(precision=3),
+            },
+        )
+
+    # 태스크 플로우 정의
+    naver_ratings_json = get_naver_ratings()
+    watcha_ratings_json = get_watcha_ratings(naver_ratings_json)
+    merged_csv_path = merge_ratings(naver_ratings_json, watcha_ratings_json)
+    upload_to_postgres(merged_csv_path)
 
 
-daily_movie_ratings()
+dag_instance = daily_movie_ratings_dag()

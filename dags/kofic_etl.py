@@ -196,7 +196,7 @@ def kofic_etl():
             s3_hook = S3Hook(aws_conn_id="aws_conn")
             s3_hook.load_string(
                 string_data=json.dumps(movie_info, ensure_ascii=False),
-                key=f"kofic/movie/{target_date}/{movie_cd}.csv",
+                key=f"kofic/movie/{target_date}/{movie_cd}.json",
                 bucket_name=bucket_name,
                 replace=True,
             )

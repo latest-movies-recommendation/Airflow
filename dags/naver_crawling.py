@@ -204,16 +204,19 @@ def naver_info_crawling(**kwargs):
     # s3에 있는 영화 정보 파일에 이미 존재하는 영화들 => 영화 정보 안 뽑아도 되고 리뷰의 경우 모든 리뷰가 아니라 오늘의 리뷰만 뽑아서 기존파일에 덧붙이기
     naver_info_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
 
+    movies = []
+    codes = []
+
     for k, v in movie_ranking_ten.items():
         if v in naver_info_movies:
             continue
-        movieCd.append(k)
-        movieNm.append(v)
+        codes.append(k)
+        movies.append(v)
 
     driver.get("https://www.naver.com")
     driver.implicitly_wait(2)
 
-    for movie in movieNm:
+    for movie, code in zip(movies, codes):
         # 줄거리, 이미지 정보 크롤링
         movie_info_search = f"영화 {movie} 정보"
 
@@ -242,7 +245,6 @@ def naver_info_crawling(**kwargs):
             movie_story = movie_info_tab.find_element(
                 By.CSS_SELECTOR, movie_story_selector
             )
-            movie_stories.append(movie_story.text)
             logging.info(f"{movie} 줄거리 추출함")
 
             # 영화 포스터 이미지 src 찾기
@@ -254,6 +256,10 @@ def naver_info_crawling(**kwargs):
                 By.CSS_SELECTOR, "div > div.detail_info > a > img"
             )
             poster_src = movie_poster.get_attribute("src")
+
+            movieNm.append(movie)
+            movieCd.append(code)
+            movie_stories.append(movie_story.text)
             movie_posters.append(poster_src)
 
             try:
@@ -301,7 +307,7 @@ def naver_info_crawling(**kwargs):
             except NoSuchElementException:
                 movie_companies.append("모름")
         except NoSuchElementException:
-            movie_stories.append("영화 정보를 찾을 수 없습니다.")
+            pass
 
         driver.get("https://www.naver.com")
 
@@ -323,8 +329,6 @@ def naver_info_crawling(**kwargs):
         update_s3_file(naver_info_df, "naver/naver_info.csv")
     else:
         upload_to_s3(naver_info_df, "naver/naver_info.csv")
-
-    return movie_posters
 
 
 def critic_review_crawling(**kwargs):
@@ -376,7 +380,7 @@ def critic_review_crawling(**kwargs):
                     time.sleep(1)
                     break
         except NoSuchElementException:
-            info_critic_score.append("아직 평점 없음")
+            info_critic_score[movie] = "아직 평점 없음"
             driver.get("https://www.naver.com")
             continue
 
@@ -457,7 +461,7 @@ def critic_review_crawling(**kwargs):
                 f"naver/naver-critic-reviews/{movie}_critic_review.csv",
             )
         except NoSuchElementException:
-            info_critic_score.append("평점 없음")
+            info_critic_score[movie] = "평점 없음"
         driver.get("https://www.naver.com")
 
     return info_critic_score
@@ -497,15 +501,19 @@ def naver_review_crawling(**kwargs):
     movieCd = []
     movie_critic_score = []
 
+    movie_name = []
+    movie_code = []
+    movie_star = []
+
     for k, v in critic_score.items():
-        movieCd.append(movies.get(k))
-        movieNm.append(k)
-        movie_critic_score.append(v)
+        movie_name.append(k)
+        movie_code.append(movies.get(k))
+        movie_star.append(v)
 
     driver.get("https://www.naver.com")
     driver.implicitly_wait(2)
     # 영화 리뷰, 평점 크롤링
-    for movie in movieNm:
+    for movie, code, star in zip(movie_name, movie_code, movie_star):
         # 영화별 댓글 추출
         movie_review = []
         movie_review_date = []
@@ -544,6 +552,10 @@ def naver_review_crawling(**kwargs):
             naver_grades.append(entire_grade)
             naver_male_grades.append(male_grade)
             naver_female_grades.append(female_grade)
+
+            movieNm.append(movie)
+            movieCd.append(code)
+            movie_critic_score.append(star)
 
             review_list = driver.find_element(
                 By.CLASS_NAME, "lego_review_list._scroller"
@@ -623,9 +635,6 @@ def naver_review_crawling(**kwargs):
             driver.get("https://www.naver.com")
 
         except Exception:
-            naver_grades.append("평점 없음")
-            naver_male_grades.append("평점 없음")
-            naver_female_grades.append("평점 없음")
             driver.get("https://www.naver.com")
 
     # 영화 리뷰 dataframe
