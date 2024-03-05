@@ -3,8 +3,8 @@ from io import StringIO
 
 import pandas as pd
 from airflow import DAG
-from airflow.hooks.S3_hook import S3Hook
 from airflow.hooks.postgres_hook import PostgresHook
+from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
 
