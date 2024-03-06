@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
-from airflow import DAG
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
+
+from airflow import DAG
 
 
 def load_csv_to_postgres():
@@ -50,7 +51,7 @@ default_args = {
 }
 
 dag = DAG(
-    "s3_to_postgres_dag",
+    "z_s3_to_postgres_dag",
     default_args=default_args,
     description="Load CSV files from S3 to PostgreSQL",
     schedule_interval=timedelta(days=1),

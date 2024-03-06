@@ -228,7 +228,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="300movies_review_crawler",
+    dag_id="z_300movies_review_crawler",
     schedule_interval="@monthly",  # 평일 실행
     catchup=False,
     default_args=default_args,

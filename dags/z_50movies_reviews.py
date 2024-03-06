@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
-from airflow import DAG
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
@@ -14,6 +13,8 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+
+from airflow import DAG
 
 
 # s3에서 파일 리스트 불러오기 =>리뷰 파일/영화 정보 파일이 있는지 확인 위함
@@ -229,7 +230,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="300movies_review_crawler",
+    dag_id="z_300movies_review_crawler",
     schedule_interval="@monthly",  # 평일 실행
     catchup=False,
     default_args=default_args,
