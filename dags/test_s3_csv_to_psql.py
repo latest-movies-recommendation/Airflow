@@ -50,7 +50,7 @@ default_args = {
 }
 
 dag = DAG(
-    "s3_to_postgres_dag",
+    "z_s3_to_postgres_dag",
     default_args=default_args,
     description="Load CSV files from S3 to PostgreSQL",
     schedule_interval=timedelta(days=1),
