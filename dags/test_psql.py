@@ -38,7 +38,7 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "postgres_manipulation",
+    "z_postgres_manipulation",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
     schedule_interval=timedelta(days=1),

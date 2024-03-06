@@ -15,6 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 
+# 주석
 # s3에서 파일 리스트 불러오기 =>리뷰 파일/영화 정보 파일이 있는지 확인 위함
 def read_s3_filelist():
     s3 = S3Hook(aws_conn_id="aws_conn")
@@ -228,7 +229,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="300movies_review_crawler",
+    dag_id="z_300movies_review_crawler",
     schedule_interval="@monthly",  # 평일 실행
     catchup=False,
     default_args=default_args,
