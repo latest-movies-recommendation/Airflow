@@ -5,6 +5,7 @@ from airflow.hooks.postgres_hook import PostgresHook
 from airflow.operators.python_operator import PythonOperator
 
 
+# 이건 테스트용 문구
 def manipulate_postgres_data():
     # PostgresHook을 사용하여 설정된 연결 정보를 사용
     postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
