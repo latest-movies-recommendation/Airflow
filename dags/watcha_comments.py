@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
-from airflow import DAG
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
@@ -12,6 +11,8 @@ from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+
+from airflow import DAG
 
 
 # 어제 날짜 ex)20240215 형식으로 리턴

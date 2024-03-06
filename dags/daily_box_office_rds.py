@@ -3,12 +3,13 @@ from datetime import date, datetime, timedelta
 from io import StringIO
 
 import pandas as pd
-from airflow import DAG
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.dagrun_operator import TriggerDagRunOperator
 from airflow.operators.python import PythonOperator
+
+from airflow import DAG
 
 
 def daily_filename():
