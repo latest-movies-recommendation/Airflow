@@ -16,6 +16,7 @@ from selenium.webdriver.common.keys import Keys
 from airflow import DAG
 
 
+# 주석
 # s3에서 파일 리스트 불러오기 =>리뷰 파일/영화 정보 파일이 있는지 확인 위함
 def read_s3_filelist():
     s3 = S3Hook(aws_conn_id="aws_conn")
