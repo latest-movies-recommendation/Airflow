@@ -4,13 +4,12 @@ from io import StringIO
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from airflow import DAG
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator
 from konlpy.tag import Okt
 from wordcloud import WordCloud
-
-from airflow import DAG
 
 
 def yesterday_date():

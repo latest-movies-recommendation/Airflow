@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
+from airflow import DAG
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
@@ -12,8 +13,6 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-
-from airflow import DAG
 
 
 # 주석

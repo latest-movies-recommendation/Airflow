@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
-from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
-
 from airflow import DAG
+from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 
 default_args = {
     "owner": "airflow",

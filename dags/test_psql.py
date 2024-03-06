@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 
+from airflow import DAG
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.operators.python_operator import PythonOperator
-
-from airflow import DAG
 
 
 def manipulate_postgres_data():
