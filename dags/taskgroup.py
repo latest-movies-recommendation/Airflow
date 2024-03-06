@@ -1,27 +1,22 @@
+import json
 import logging
 import re
 from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
+import requests
 from airflow import DAG
+from airflow.decorators import dag, task
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-import json
-from datetime import datetime, timedelta
-from io import StringIO
-
-import pandas as pd
-import requests
-from airflow.decorators import dag, task
-from airflow.models import Variable
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
 
 def yesterday_date_format():
