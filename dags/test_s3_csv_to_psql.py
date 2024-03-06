@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pandas as pd
-from airflow import DAG
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
+
+from airflow import DAG
 
 
 def load_csv_to_postgres():
