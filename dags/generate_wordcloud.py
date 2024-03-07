@@ -66,9 +66,9 @@ def download_file_from_s3(**kwargs):
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
 
     s3_hook = S3Hook(aws_conn_id="aws_default")
-    bucket_name = "your-bucket-name"
+    bucket_name = Variable.get("s3_bucket_name")
     for code in codes:
-        key = f"watcha/{code}.csv"
+        key = f"watcha/m{code}.csv"
         local_path = f"/tmp/{code}.csv"
         s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
         ti.xcom_push(key=f"local_path_{code}", value=local_path)
@@ -113,19 +113,19 @@ def generate_wordcloud(**kwargs):
         plt.figure(figsize=(10, 10))
         plt.axis("off")
         plt.imshow(wc)
-        plt.savefig(f"/tmp/wordcloud_{title}.png")
-        df_word.to_csv(f"/tmp/processed_{title}.csv", index=False)
+        plt.savefig(f"/tmp/{code}.png")
+        df_word.to_csv(f"/tmp/dict_{code}.csv", index=False)
 
 
 def upload_to_s3(**kwargs):
     ti = kwargs["ti"]
-    titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
+    codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
     s3_hook = S3Hook(aws_conn_id="aws_default")
     bucket_name = Variable.get("s3_bucket_name")
 
-    for title in titles:
-        wordcloud_image_path = f"/tmp/wordcloud_{title}.png"
-        processed_csv_path = f"/tmp/processed_{title}.csv"
+    for code in codes:
+        wordcloud_image_path = f"/tmp/{code}.png"
+        processed_csv_path = f"/tmp/dict_{code}.csv"
 
         # 이미지 업로드
         with open(wordcloud_image_path, "rb") as f:
@@ -134,7 +134,7 @@ def upload_to_s3(**kwargs):
             )
             s3_hook.load_file(
                 filename=wordcloud_image_path,
-                key=f"image/wordcloud_{title}.png",
+                key=f"wordcloud/image/{code}.png",
                 bucket_name=bucket_name,
                 replace=True,
             )
@@ -146,7 +146,7 @@ def upload_to_s3(**kwargs):
             )
             s3_hook.load_file(
                 filename=processed_csv_path,
-                key=f"dict/processed_{title}.csv",
+                key=f"wordcloud/dict/dict_{code}.csv",
                 bucket_name=bucket_name,
                 replace=True,
             )
@@ -176,3 +176,4 @@ upload_to_s3_task = PythonOperator(
 
 # Task 종속성 설정
 download_task >> generate_wordcloud_task >> upload_to_s3_task
+ß
