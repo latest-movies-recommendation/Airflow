@@ -36,8 +36,9 @@ def daily_movie_ratings_dag():
             if obj:
                 # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
                 csv_data = obj.get()["Body"].read().decode("utf-8")
-                naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, 1:3]
-                naver_rating.rename(columns={"movieCd": "code"}, inplace=True)
+                naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :3]
+                naver_rating.rename(columns={"movieNm": "movie_name"}, inplace=True)
+                naver_rating.rename(columns={"movieCd": "movie_code"}, inplace=True)
                 logging.info(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
                 return naver_rating.to_json(orient="split")
@@ -54,7 +55,7 @@ def daily_movie_ratings_dag():
             logging.info("NAVER 평점 데이터가 없으므로 Watcha 평점 수집을 건너뜁니다.")
             return None
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
-        codes = naver_ratings["code"].tolist()
+        codes = naver_ratings["movie_code"].tolist()
 
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
@@ -87,14 +88,16 @@ def daily_movie_ratings_dag():
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
         watcha_ratings = json.loads(watcha_ratings_json)
 
-        naver_ratings['code'] = naver_ratings['code'].astype(str)
+        naver_ratings["movie_code"] = naver_ratings["movie_code"].astype(str)
 
         watcha_rating_df = pd.DataFrame(
-            list(watcha_ratings.items()), columns=["code", "watcha_rating"]
+            list(watcha_ratings.items()), columns=["movie_code", "watcha_rating"]
         )
-        watcha_rating_df['code'] = watcha_rating_df['code'].astype(str)
+        watcha_rating_df["movie_code"] = watcha_rating_df["movie_code"].astype(str)
 
-        merged_df = pd.merge(naver_ratings, watcha_rating_df, on="code", how="left")
+        merged_df = pd.merge(
+            naver_ratings, watcha_rating_df, on="movie_code", how="left"
+        )
         logging.info(merged_df)
         # CSV 파일로 저장
         merged_csv_path = "/tmp/merged_movie_ratings.csv"
@@ -115,7 +118,6 @@ def daily_movie_ratings_dag():
         # 'entire_grade' 컬럼을 'naver_rating'으로 간주하고, 데이터 타입을 float으로 변환
         merged_df["entire_grade"] = merged_df["entire_grade"].astype(float)
         merged_df["watcha_rating"] = merged_df["watcha_rating"].astype(float)
-        logging.info(merged_df.head())
 
         # PostgresHook 사용
         postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
@@ -123,6 +125,7 @@ def daily_movie_ratings_dag():
 
         # DataFrame을 SQL 테이블에 삽입
         merged_df.rename(columns={"entire_grade": "naver_rating"}, inplace=True)
+        logging.info(merged_df.head())
 
         merged_df.to_sql(
             "daily_movie_ratings",
@@ -131,6 +134,7 @@ def daily_movie_ratings_dag():
             index=False,
             method="multi",
             dtype={
+                "movie_name": sqlalchemy.types.VARCHAR(),
                 "movie_code": sqlalchemy.types.VARCHAR(),
                 "naver_rating": sqlalchemy.types.Float(precision=3),
                 "watcha_rating": sqlalchemy.types.Float(precision=3),
