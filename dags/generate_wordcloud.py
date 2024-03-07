@@ -35,11 +35,12 @@ dag = DAG(
 )
 
 
-def get_daily_box_office(ti, **kwargs):
+def get_daily_box_office(ti):
     s3_hook = S3Hook(aws_conn_id="aws_conn")
     s3_key = f"kofic/daily-box-office/{yesterday_date()}.csv"
+    bucket_name = Variable.get("s3_bucket_name")
     try:
-        obj = s3_hook.get_key(key=s3_key, bucket_name=Variable.get("s3_bucket_name"))
+        obj = s3_hook.get_key(key=s3_key, bucket_name=bucket_name)
         if obj:
             # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
             csv_data = obj.get()["Body"].read().decode("utf-8")
@@ -71,9 +72,12 @@ def download_file_from_s3(**kwargs):
     for code in codes:
         key = f"watcha/m{code}.csv"
         local_path = f"/tmp/{code}.csv"
+        logging.info("11111")
+        logging.info(key)
         s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
+        logging.info("22222")
         ti.xcom_push(key=f"local_path_{code}", value=local_path)
-
+        logging.info("33333")
 
 def generate_wordcloud(**kwargs):
     ti = kwargs["ti"]
