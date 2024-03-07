@@ -176,4 +176,3 @@ upload_to_s3_task = PythonOperator(
 
 # Task 종속성 설정
 download_task >> generate_wordcloud_task >> upload_to_s3_task
-ß
