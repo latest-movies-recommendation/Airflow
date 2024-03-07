@@ -73,7 +73,7 @@ def download_file_from_s3(**kwargs):
     for code in codes:
         key = f"watcha/movies/m{code}.csv"
         # 올바른 방식으로 local_path 지정
-        local_path = f"/tmp/{code}.csv"  # 파일의 최종 저장 경로
+        local_path = f"/tmp/"  # 파일의 최종 저장 경로
         logging.info("11111")
         logging.info(key)
         s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
