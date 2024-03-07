@@ -88,7 +88,7 @@ def daily_movie_ratings_dag():
         watcha_ratings = json.loads(watcha_ratings_json)
 
         watcha_rating_df = pd.DataFrame(
-            list(watcha_ratings.items()), columns=["movie", "watcha_rating"]
+            list(watcha_ratings.items()), columns=["code", "watcha_rating"]
         )
         merged_df = pd.merge(naver_ratings, watcha_rating_df, on="code", how="left")
 
