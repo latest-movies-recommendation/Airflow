@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from datetime import datetime, timedelta
 from io import StringIO
 
@@ -11,15 +10,6 @@ from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-
-def format_movie_titles(df):
-    # 첫 번째 열의 제목들에 대해 포맷팅 적용
-    df[df.columns[0]] = df[df.columns[0]].apply(
-        lambda title: re.sub(r'[\\/*?:"<>|]', "", title)
-    )
-    return df
-
-
 default_args = {
     "owner": "eunji",
     "start_date": datetime(2024, 2, 28),
@@ -29,7 +19,7 @@ default_args = {
 
 
 @dag(
-    dag_id="daily_movie_ratings",
+    dag_id="daily_movie_ratings_db_3",
     default_args=default_args,
     schedule_interval="10 1 * * *",
     catchup=False,
@@ -44,12 +34,12 @@ def daily_movie_ratings_dag():
                 key=s3_key, bucket_name=Variable.get("s3_bucket_name")
             )
             if obj:
+                # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
                 csv_data = obj.get()["Body"].read().decode("utf-8")
                 naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :2]
-                # 영화 제목 형식 통일
-                naver_rating_formatted = format_movie_titles(naver_rating)
+                naver_rating.rename({"movieCd": "code"}, inplace=True)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
-                return naver_rating_formatted.to_json(orient="split")
+                return naver_rating.to_json(orient="split")
             else:
                 logging.info(f"S3에 {s3_key} 파일이 없습니다.")
                 return None
@@ -63,28 +53,28 @@ def daily_movie_ratings_dag():
             logging.info("NAVER 평점 데이터가 없으므로 Watcha 평점 수집을 건너뜁니다.")
             return None
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
-        titles = naver_ratings.iloc[:, 0].tolist()
+        codes = naver_ratings["movieCd"].tolist()
 
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
         watcha_ratings = {}
 
-        for title in titles:
+        for code in codes:
             # 제목을 파일 이름으로 변환하여 S3 버킷에서 파일 찾기
-            file_key = f"watcha/movies/{title}.csv"
+            file_key = f"watcha/movies/m{code}.csv"
             # S3 버킷에서 파일 존재 여부 확인
             if s3_hook.check_for_key(file_key, bucket_name):
                 # 파일이 존재하는 경우, 가져오기
                 obj = s3_hook.get_key(key=file_key, bucket_name=bucket_name)
                 csv_data = obj.get()["Body"].read().decode("utf-8")
-                score_df = pd.read_csv(StringIO(csv_data)).iloc[:, 3]
+                score_df = pd.read_csv(StringIO(csv_data)).iloc[:, 4]
                 numeric_df = pd.to_numeric(score_df, errors="coerce")
                 numeric_df.dropna(inplace=True)
                 average_rating = numeric_df.mean()
                 # 10점 만점이 되도록 평점 조정 후 딕셔너리에 저장
-                watcha_ratings[title] = average_rating * 2
+                watcha_ratings[code] = average_rating * 2
             else:
-                logging.info(f"{title} 파일이 존재하지 않습니다.")
+                print(f"No CSV file found for m{code}")
         return json.dumps(watcha_ratings)
 
     @task
@@ -98,8 +88,9 @@ def daily_movie_ratings_dag():
         watcha_rating_df = pd.DataFrame(
             list(watcha_ratings.items()), columns=["movie", "watcha_rating"]
         )
-        merged_df = pd.merge(naver_ratings, watcha_rating_df, on="movie", how="left")
+        merged_df = pd.merge(naver_ratings, watcha_rating_df, on="code", how="left")
 
+        # CSV 파일로 저장
         merged_csv_path = "/tmp/merged_movie_ratings.csv"
         merged_df.to_csv(merged_csv_path, index=False)
 
