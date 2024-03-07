@@ -30,6 +30,8 @@ trigger_glue_job_movie = GlueJobOperator(
     aws_conn_id="aws_conn",
     region_name="ap-northeast-2",
     dag=dag,
+    retries=3,  # 재시도 횟수
+    retry_delay=timedelta(minutes=3),  # 재시도 간격
 )
 
 # 첫 번째 Glue 작업 완료 대기
