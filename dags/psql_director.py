@@ -14,21 +14,30 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     create_table_query = """
-        CREATE OR REPLACE TABLE tem (
-        movieCd VARCHAR(50) PRIMARY KEY,
-        peopleNm VARCHAR(70),
-        peopleNmEn VARCHAR(70)
-        );
-        COPY INTO tem
-        FROM @DE_4_2_S3_STAGE_KOFIC
-        FILE_FORMAT = (TYPE = 'csv' FIELD_DELIMITER = ',' FIELD_OPTIONALLY_ENCLOSED_BY = '"' NULL_IF = ('', ' '))
-        PATTERN='movie/directors/.*';
-        -- 제목 중복돼 들어가서 전처리
-        DELETE FROM tem
-        WHERE moviecd = 'movieCd' AND peoplenm = 'peopleNm';
-        create table director as
-        SELECT distinct *
-        FROM tem;
+        BEGIN; -- 트랜잭션 시작
+
+        DROP TABLE IF EXISTS temp; -- 기존 임시 테이블 삭제
+
+        CREATE TABLE temp (
+            movieCd VARCHAR(50) PRIMARY KEY,
+            peopleNm VARCHAR(70),
+            peopleNmEn VARCHAR(70)
+        ); -- 새 임시 테이블 생성
+
+        COPY temp (movieCd, peopleNm, peopleNmEn)
+        FROM '/path/to/csv/file.csv' -- CSV 파일의 경로를 지정해야 합니다.
+        WITH CSV HEADER DELIMITER ',' QUOTE '"'; -- CSV 파일 형식 지정
+
+        DELETE FROM temp
+        WHERE movieCd = 'movieCd' AND peopleNm = 'peopleNm'; -- 잘못된 데이터 삭제
+
+        DROP TABLE IF EXISTS director; -- 기존 감독 테이블 삭제
+
+        CREATE TABLE director AS
+        SELECT DISTINCT *
+        FROM temp; -- 새 감독 테이블 생성
+
+        COMMIT; -- 트랜잭션 커밋
     """
     cur.execute(create_table_query)
 
