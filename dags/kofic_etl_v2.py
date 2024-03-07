@@ -159,10 +159,9 @@ def kofic_etl_v2():
                 replace=True,
             )
 
-    daily_box_office_data = get_daily_box_office()
-    movie_cds_result = get_movie()
-
-    daily_box_office_data >> movie_cds_result
+    # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
+    movie_cds_result = get_daily_box_office()
+    get_movie(movie_cds=movie_cds_result)
 
 
 kofic_etl_v2()
