@@ -57,6 +57,6 @@ jobs:
       # ./dags 디렉토리의 내용을 지정된 S3 버킷에 동기화
       # --delete 옵션은 S3 버킷에 있는데 로컬에 없는 파일을 삭제
       run: |
-        if ! aws s3 sync ./dags s3://de-4-2-dev-bucket/dags; then
+        if ! aws s3 sync ./dags s3://dongbin-dev-bucket/dags; then
           echo "S3 sync failed" && exit 1
         fi
