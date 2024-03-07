@@ -19,15 +19,6 @@ def yesterday_date():
     return now.strftime("%Y%m%d")
 
 
-def download_file_from_s3(bucket_name, s3_key, local_path):
-    """
-    S3에서 파일을 다운로드하여 지정된 로컬 경로에 저장합니다.
-    """
-    s3 = boto3.client("s3")
-    with open(local_path, "wb") as file:
-        s3.download_fileobj(bucket_name, s3_key, file)
-
-
 # DAG 정의
 default_args = {
     "owner": "airflow",
@@ -91,8 +82,6 @@ def download_file_from_s3(**kwargs):
         ti.xcom_push(key=f"local_path_{code}", value=local_path)
         logging.info("33333")
 
-        # local_path = '/desired/local/path/your-file-name.csv'
-        download_file_from_s3(bucket_name, key, local_path)
 
 
 def generate_wordcloud(**kwargs):
@@ -100,7 +89,7 @@ def generate_wordcloud(**kwargs):
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
 
     for code in codes:
-        local_path = f"tmp/{code}"
+        local_path = f"tmp/{code}.csv"
         df = pd.read_csv(local_path, encoding="utf-8")
 
         df["comment"] = df["comment"].str.replace("[^가-힣]", " ", regex=True)
