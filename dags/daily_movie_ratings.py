@@ -37,7 +37,8 @@ def daily_movie_ratings_dag():
                 # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
                 csv_data = obj.get()["Body"].read().decode("utf-8")
                 naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :2]
-                naver_rating.rename({"movieCd": "code"}, inplace=True)
+                naver_rating.rename(columns={"movieCd": "code"}, inplace=True)
+                logging.info(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
                 return naver_rating.to_json(orient="split")
             else:
@@ -53,7 +54,7 @@ def daily_movie_ratings_dag():
             logging.info("NAVER 평점 데이터가 없으므로 Watcha 평점 수집을 건너뜁니다.")
             return None
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
-        codes = naver_ratings["movieCd"].tolist()
+        codes = naver_ratings["code"].tolist()
 
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
@@ -73,6 +74,7 @@ def daily_movie_ratings_dag():
                 average_rating = numeric_df.mean()
                 # 10점 만점이 되도록 평점 조정 후 딕셔너리에 저장
                 watcha_ratings[code] = average_rating * 2
+                logging.info(watcha_ratings)
             else:
                 print(f"No CSV file found for m{code}")
         return json.dumps(watcha_ratings)
@@ -85,9 +87,13 @@ def daily_movie_ratings_dag():
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
         watcha_ratings = json.loads(watcha_ratings_json)
 
+        naver_ratings['code'] = naver_ratings['code'].astype(str)
+
         watcha_rating_df = pd.DataFrame(
-            list(watcha_ratings.items()), columns=["movie", "watcha_rating"]
+            list(watcha_ratings.items()), columns=["code", "watcha_rating"]
         )
+        watcha_rating_df['code'] = watcha_rating_df['code'].astype(str)
+
         merged_df = pd.merge(naver_ratings, watcha_rating_df, on="code", how="left")
 
         # CSV 파일로 저장
