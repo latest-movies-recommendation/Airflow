@@ -64,6 +64,7 @@ def get_daily_box_office(ti, **kwargs):
 def download_file_from_s3(**kwargs):
     ti = kwargs["ti"]
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
+    logging.info(codes)
 
     s3_hook = S3Hook(aws_conn_id="aws_conn")
     bucket_name = Variable.get("s3_bucket_name")
