@@ -1,5 +1,4 @@
 import logging
-import re
 from datetime import datetime, timedelta
 from io import StringIO
 
@@ -36,8 +35,11 @@ def get_daily_box_office(ti):
                 raise ValueError("movieNm 컬럼이 데이터프레임에 존재하지 않습니다.")
             # 영진위 1-10위 영화
             movies = df["movieNm"].tolist()[-10:]
+            movie_codes = df["movieCd"].tolist()[-10:]
             ti.xcom_push(key="movies_title", value=movies)
+            ti.xcom_push(key="movies_code", value=movie_codes)
             logging.info(movies)
+            logging.info(movie_codes)
             return movies
         else:
             logging.info(f"S3에 {yesterday_date()}자 해당 파일이 없습니다.")
@@ -59,12 +61,12 @@ def setting_driver():
 def scraping_watcha(**kwargs):
     ti = kwargs["ti"]
     titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
-    # titles = ["파이트클럽", "무간도2", "사도", "펄프픽션", "테넷", "식스센스", "바빌론"]
+    codes = ti.xcom_pull(task_id="get_daily_box_office", key="movies_code")
     logging.info(titles)
-
+    logging.info(f"영화코드 전달 완료!: {codes}")
     driver = setting_driver()
     if titles is not None:
-        for title in titles:
+        for title, code in zip(titles, codes):
             logging.info(f"{title} 리뷰 추출을 시작합니다.")
             try:
                 url = f"https://pedia.watcha.com/ko-KR/search?query={title}"
@@ -111,7 +113,8 @@ def scraping_watcha(**kwargs):
 
                 df = pd.DataFrame(data, columns=["id", "score", "likes", "comment"])
 
-                # 영화 제목 컬럼 추가
+                # 영화 코드, 제목 컬럼 추가
+                df["movie_code"] = code
                 df["movie_name"] = title
 
                 # 수집한 날짜 컬럼 추가
@@ -120,13 +123,22 @@ def scraping_watcha(**kwargs):
 
                 # 컬럼 순서 재정렬
                 df = df[
-                    ["id", "movie_name", "collected_date", "score", "likes", "comment"]
+                    [
+                        "id",
+                        "movie_code",
+                        "movie_name",
+                        "collected_date",
+                        "score",
+                        "likes",
+                        "comment",
+                    ]
                 ]
                 logging.info("------새로 수집된 댓글 데이터프레임------")
                 logging.info(df)
 
                 # S3에 업로드
-                upload_to_s3(title, df)
+
+                upload_to_s3(code, df)
 
             except Exception as e:
                 logging.info(f"selenium 접근 실패: {e}")
@@ -160,10 +172,8 @@ def get_csv_string(df):
     return csv_string
 
 
-def upload_to_s3(title, df):
-    # 파일 제목에 들어가서는 안 되는 문자 제거
-    safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
-    file_name = f"{safe_title}.csv"
+def upload_to_s3(code, df):
+    file_name = f"m{code}.csv"
     key = f"watcha/movies/{file_name}"
     s3_hook = S3Hook(aws_conn_id="aws_conn")
     s3_bucket_name = Variable.get("s3_bucket_name")
