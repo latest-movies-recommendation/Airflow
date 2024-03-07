@@ -123,8 +123,42 @@ def kofic_etl_v2():
             bucket_name=bucket_name,
             replace=True,
         )
+        movie_cds = [movie.get("movieCd") for movie in data ["boxOfficeResult"]["dailyBoxOfficeList"]]
+        return movie_cds
 
     daily_box_office_data = get_daily_box_office()
+    
+    @task
+    def get_movie(movie_cds):
+        api_key = Variable.get("kofic_key")
 
+        # context = get_current_context()
+        # execution_date = context["ds"]
+        # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        target_date = yesterday_date_format()
+
+        for movie_cd in movie_cds:
+            response = requests.get(
+                "http://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieInfo.json",
+                params={"key": api_key, "movieCd": movie_cd},
+            )
+
+            movie_info = response.json()["movieInfoResult"]["movieInfo"]
+
+            print(movie_info)
+
+            bucket_name = Variable.get("s3_bucket_name")
+            s3_hook = S3Hook(aws_conn_id="aws_conn")
+            s3_hook.load_string(
+                string_data=json.dumps(movie_info, ensure_ascii=False),
+                key=f"kofic/movie2/{target_date}/{movie_cd}.json",
+                bucket_name=bucket_name,
+                replace=True,
+            )
+
+    daily_box_office_data = get_daily_box_office()
+    movie_cds_result = get_movie()
+
+    daily_box_office_data >> movie_cds_result
 
 kofic_etl_v2()
