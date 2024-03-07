@@ -6,6 +6,7 @@ import pandas as pd
 import requests
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
@@ -129,7 +130,6 @@ def kofic_etl_v2():
         ]
         return movie_cds
 
-
     @task
     def get_movie(movie_cds):
         api_key = Variable.get("kofic_key")
@@ -158,9 +158,22 @@ def kofic_etl_v2():
                 replace=True,
             )
 
+    # Trigger naver_crawler DAG
+    trigger_naver_crawler = TriggerDagRunOperator(
+        task_id="trigger_naver_crawler",
+        trigger_dag_id="naver_crawler",  # Make sure this matches the dag_id of the naver_crawler DAG
+    )
+
+    # Trigger watcha_comments DAG
+    trigger_watcha_comments = TriggerDagRunOperator(
+        task_id="trigger_watcha_comments",
+        trigger_dag_id="watcha_comments",  # Make sure this matches the dag_id of the watcha_comments DAG
+    )
     # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
     movie_cds_result = get_daily_box_office()
     get_movie(movie_cds=movie_cds_result)
+
+    movie_cds_result >> trigger_naver_crawler >> trigger_watcha_comments
 
 
 kofic_etl_v2()
