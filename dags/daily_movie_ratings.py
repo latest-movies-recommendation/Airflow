@@ -88,14 +88,16 @@ def daily_movie_ratings_dag():
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
         watcha_ratings = json.loads(watcha_ratings_json)
 
-        naver_ratings['movie_code'] = naver_ratings['movie_code'].astype(str)
+        naver_ratings["movie_code"] = naver_ratings["movie_code"].astype(str)
 
         watcha_rating_df = pd.DataFrame(
             list(watcha_ratings.items()), columns=["movie_code", "watcha_rating"]
         )
-        watcha_rating_df['movie_code'] = watcha_rating_df['movie_code'].astype(str)
+        watcha_rating_df["movie_code"] = watcha_rating_df["movie_code"].astype(str)
 
-        merged_df = pd.merge(naver_ratings, watcha_rating_df, on="movie_code", how="left")
+        merged_df = pd.merge(
+            naver_ratings, watcha_rating_df, on="movie_code", how="left"
+        )
         logging.info(merged_df)
         # CSV 파일로 저장
         merged_csv_path = "/tmp/merged_movie_ratings.csv"
