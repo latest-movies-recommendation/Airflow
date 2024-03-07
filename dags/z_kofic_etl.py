@@ -25,7 +25,7 @@ default_args = {
 
 
 @dag(
-    dag_id="kofic_etl",
+    dag_id="z_kofic_etl",
     default_args=default_args,
     schedule_interval="0 1 * * *",
     catchup=False,

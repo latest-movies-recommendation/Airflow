@@ -25,7 +25,7 @@ default_args = {
 
 
 @dag(
-    dag_id="daily_box_office_elt",
+    dag_id="z_daily_box_office_elt",
     default_args=default_args,
     schedule_interval="0 2 * * *",
     catchup=False,
