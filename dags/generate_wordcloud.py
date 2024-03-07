@@ -92,7 +92,7 @@ def generate_wordcloud(**kwargs):
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
 
     for code in codes:
-        local_path = f"tmp/{code}"
+        local_path = f"tmp/{code}.csv"
         df = pd.read_csv(local_path, encoding="utf-8")
 
         df["comment"] = df["comment"].str.replace("[^가-힣]", " ", regex=True)
