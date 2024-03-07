@@ -158,7 +158,7 @@ def kofic_etl_v2():
                 replace=True,
             )
 
-    # Trigger naver_crawler DAG . 
+    # Trigger naver_crawler DAG . .
     trigger_naver_crawler = TriggerDagRunOperator(
         task_id="trigger_naver_crawler",
         trigger_dag_id="naver_crawler",  # Make sure this matches the dag_id of the naver_crawler DAG
