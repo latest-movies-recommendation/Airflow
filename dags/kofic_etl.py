@@ -139,7 +139,7 @@ def kofic_etl():
         query=f"""
             SELECT DISTINCT(dbo.moviecd), dbo.movienm
             FROM {database_name}.daily_box_office dbo
-            LEFT JOIN {database_name}.movie m ON dbo.moviecd = m.moviecd
+            LEFT JOIN {database_name}.movie2 m ON dbo.moviecd = m.moviecd
             WHERE m.moviecd IS NULL
                 AND dbo.moviecd IS NOT NULL;
             """,
@@ -197,7 +197,7 @@ def kofic_etl():
             s3_hook = S3Hook(aws_conn_id="aws_conn")
             s3_hook.load_string(
                 string_data=json.dumps(movie_info, ensure_ascii=False),
-                key=f"kofic/movie/{target_date}/{movie_cd}.json",
+                key=f"kofic/movie2/{target_date}/{movie_cd}.json",
                 bucket_name=bucket_name,
                 replace=True,
             )
