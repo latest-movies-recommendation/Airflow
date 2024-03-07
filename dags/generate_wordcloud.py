@@ -77,14 +77,11 @@ def download_file_from_s3(**kwargs):
         local_path = f"/tmp/{code}.csv"  # 파일의 최종 저장 경로
         logging.info("11111")
         logging.info(key)
-        #s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
+        # s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
         logging.info("22222")
         ti.xcom_push(key=f"local_path_{code}", value=local_path)
         logging.info("33333")
 
-        s3 = boto3.client('s3')
-        with open(local_path, 'wb') as file:
-            s3.download_fileobj(bucket_name, key, file)
 
 
 def generate_wordcloud(**kwargs):
