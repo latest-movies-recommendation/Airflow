@@ -115,7 +115,6 @@ def daily_movie_ratings_dag():
         # 'entire_grade' 컬럼을 'naver_rating'으로 간주하고, 데이터 타입을 float으로 변환
         merged_df["entire_grade"] = merged_df["entire_grade"].astype(float)
         merged_df["watcha_rating"] = merged_df["watcha_rating"].astype(float)
-        logging.info(merged_df.head())
 
         # PostgresHook 사용
         postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
@@ -123,6 +122,7 @@ def daily_movie_ratings_dag():
 
         # DataFrame을 SQL 테이블에 삽입
         merged_df.rename(columns={"entire_grade": "naver_rating"}, inplace=True)
+        logging.info(merged_df.head())
 
         merged_df.to_sql(
             "daily_movie_ratings",
