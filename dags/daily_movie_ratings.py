@@ -54,7 +54,7 @@ def daily_movie_ratings_dag():
             logging.info("NAVER 평점 데이터가 없으므로 Watcha 평점 수집을 건너뜁니다.")
             return None
         naver_ratings = pd.read_json(naver_ratings_json, orient="split")
-        codes = naver_ratings["movieCd"].tolist()
+        codes = naver_ratings["code"].tolist()
 
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         bucket_name = Variable.get("s3_bucket_name")
