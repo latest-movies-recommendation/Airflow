@@ -36,7 +36,7 @@ def daily_movie_ratings_dag():
             if obj:
                 # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
                 csv_data = obj.get()["Body"].read().decode("utf-8")
-                naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :2]
+                naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, 1:3]
                 naver_rating.rename(columns={"movieCd": "code"}, inplace=True)
                 logging.info(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")

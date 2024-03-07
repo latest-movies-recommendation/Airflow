@@ -50,10 +50,10 @@ def get_daily_box_office(ti, **kwargs):
             if "movieNm" not in df.columns:
                 raise ValueError("movieNm 컬럼이 데이터프레임에 존재하지 않습니다.")
             # 영진위 1-10위 영화
-            movies = df["movieNm"].tolist()[-10:]
-            ti.xcom_push(key="movies_title", value=movies)
-            logging.info(movies)
-            return movies
+            movies_code = df["movieCd"].tolist()[-10:]
+            ti.xcom_push(key="movies_code", value=movies_code)
+            logging.info(movies_code)
+            return movies_code
         else:
             logging.info(f"S3에 {yesterday_date()}자 해당 파일이 없습니다.")
             return None
@@ -63,24 +63,23 @@ def get_daily_box_office(ti, **kwargs):
 
 def download_file_from_s3(**kwargs):
     ti = kwargs["ti"]
-    titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
+    codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
 
     s3_hook = S3Hook(aws_conn_id="aws_default")
     bucket_name = "your-bucket-name"
-    for title in titles:
-        key = f"data/{title}.csv"
-        local_path = f"/tmp/{title}.csv"
+    for code in codes:
+        key = f"watcha/{code}.csv"
+        local_path = f"/tmp/{code}.csv"
         s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
-        ti.xcom_push(key=f"local_path_{title}", value=local_path)
+        ti.xcom_push(key=f"local_path_{code}", value=local_path)
 
 
 def generate_wordcloud(**kwargs):
     ti = kwargs["ti"]
-    titles = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_title")
-    logging.info(titles)
+    codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
 
-    for title in titles:
-        local_path = ti.xcom_pull(key=f"local_path_{title}")
+    for code in codes:
+        local_path = ti.xcom_pull(key=f"local_path_{code}")
         df = pd.read_csv(local_path, encoding="utf-8")
 
         df["comment"] = df["comment"].str.replace("[^가-힣]", " ", regex=True)
