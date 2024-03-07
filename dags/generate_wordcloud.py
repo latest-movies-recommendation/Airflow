@@ -11,11 +11,21 @@ from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator
 from konlpy.tag import Okt
 from wordcloud import WordCloud
-
+import boto3
 
 def yesterday_date():
     now = datetime.now() - timedelta(days=1)
     return now.strftime("%Y%m%d")
+
+
+def download_file_from_s3(bucket_name, s3_key, local_path):
+    """
+    S3에서 파일을 다운로드하여 지정된 로컬 경로에 저장합니다.
+    """
+    s3 = boto3.client('s3')
+    with open(local_path, 'wb') as file:
+        s3.download_fileobj(bucket_name, s3_key, file)
+
 
 
 # DAG 정의
@@ -73,13 +83,16 @@ def download_file_from_s3(**kwargs):
     for code in codes:
         key = f"watcha/movies/m{code}.csv"
         # 올바른 방식으로 local_path 지정
-        local_path = f"/tmp/"  # 파일의 최종 저장 경로
+        local_path = f"/tmp/{code}.csv"  # 파일의 최종 저장 경로
         logging.info("11111")
         logging.info(key)
-        s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
+        #s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
         logging.info("22222")
         ti.xcom_push(key=f"local_path_{code}", value=local_path)
         logging.info("33333")
+
+        #local_path = '/desired/local/path/your-file-name.csv'
+        download_file_from_s3(bucket_name, key, local_path)
 
 
 def generate_wordcloud(**kwargs):
