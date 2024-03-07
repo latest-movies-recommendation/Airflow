@@ -18,7 +18,7 @@ def yesterday_date_format():
 # test test
 default_args = {
     "owner": "dongbin",
-    "start_date": datetime(2024, 3, 6),
+    "start_date": datetime(2024, 2, 26),
     "retries": 0,
     "retry_delay": timedelta(minutes=10),
 }
@@ -129,7 +129,6 @@ def kofic_etl_v2():
         ]
         return movie_cds
 
-    daily_box_office_data = get_daily_box_office()
 
     @task
     def get_movie(movie_cds):
