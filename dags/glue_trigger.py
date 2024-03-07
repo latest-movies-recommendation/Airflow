@@ -1,30 +1,33 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.operators.dummy import DummyOperator
+from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 from airflow.providers.amazon.aws.sensors.glue import GlueJobSensor
-from airflow.operators.python import BranchPythonOperator
-from airflow.operators.dummy import DummyOperator
-from airflow.operators.python import PythonOperator
-
 
 
 def check_glue_job_status(**kwargs):
-    ti = kwargs['ti']
+    ti = kwargs["ti"]
     # XCom을 사용하여 첫 번째 작업의 상태를 확인합니다.
-    glue_job_status = ti.xcom_pull(task_ids='trigger_glue_job_movie', key='return_value')
-    
+    glue_job_status = ti.xcom_pull(
+        task_ids="trigger_glue_job_movie", key="return_value"
+    )
+
     # 여기서는 단순화를 위해 성공을 가정하고 있으나, 실제 로직에서는 glue_job_status를 검사하여 결정해야 합니다.
-    if glue_job_status == 'Success' or 'Up_for_retry':
-        return 'trigger_glue_job_directors'
+    if glue_job_status == "Success" or "Up_for_retry":
+        return "trigger_glue_job_directors"
     else:
-        return 'wait_before_retrying'
+        return "wait_before_retrying"
+
 
 # 1분 대기하는 Python 함수
 def wait_one_minute():
     import time
+
     time.sleep(60)
-    
+
+
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
@@ -51,14 +54,14 @@ trigger_glue_job_movie = GlueJobOperator(
     aws_conn_id="aws_conn",
     region_name="ap-northeast-2",
     dag=dag,
-#    retries=3,  # 재시도 횟수
-#    retry_delay=timedelta(minutes=3),  # 재시도 간격
+    #    retries=3,  # 재시도 횟수
+    #    retry_delay=timedelta(minutes=3),  # 재시도 간격
 )
 
 
 # 조건부 분기 작업
 branching = BranchPythonOperator(
-    task_id='branching',
+    task_id="branching",
     python_callable=check_glue_job_status,
     provide_context=True,
     dag=dag,
@@ -66,7 +69,7 @@ branching = BranchPythonOperator(
 
 # 실패 시 1분을 기다립니다.
 wait_before_retrying = PythonOperator(
-    task_id='wait_before_retrying',
+    task_id="wait_before_retrying",
     python_callable=wait_one_minute,
     dag=dag,
 )
@@ -83,10 +86,14 @@ trigger_glue_job_directors = GlueJobOperator(
 
 # 더미 작업 정의 (실제 로직에 따라 변경 가능)
 trigger_glue_job_directors_dummy = DummyOperator(
-    task_id='trigger_glue_job_directors_dummy',
+    task_id="trigger_glue_job_directors_dummy",
     dag=dag,
 )
 # 작업 흐름 정의
-trigger_glue_job_movie >> branching >> [wait_before_retrying, trigger_glue_job_directors_dummy]
+(
+    trigger_glue_job_movie
+    >> branching
+    >> [wait_before_retrying, trigger_glue_job_directors_dummy]
+)
 wait_before_retrying >> trigger_glue_job_directors
 trigger_glue_job_directors_dummy >> trigger_glue_job_directors
