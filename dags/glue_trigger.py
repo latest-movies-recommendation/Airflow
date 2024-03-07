@@ -37,7 +37,7 @@ wait_for_glue_job_movie = GlueJobSensor(
     task_id="wait_for_glue_job_movie",
     job_name="de-4-2-movie",
     aws_conn_id="aws_conn",
-    region_name="ap-northeast-2",
+    #region_name="ap-northeast-2",
     run_id="{{ task_instance.xcom_pull(task_ids='trigger_glue_job_movie', key='return_value') }}",
     dag=dag,
 )
