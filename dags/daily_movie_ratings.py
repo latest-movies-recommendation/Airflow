@@ -132,6 +132,7 @@ def daily_movie_ratings_dag():
             index=False,
             method="multi",
             dtype={
+                "movie_name": sqlalchemy.types.VARCHAR(),
                 "movie_code": sqlalchemy.types.VARCHAR(),
                 "naver_rating": sqlalchemy.types.Float(precision=3),
                 "watcha_rating": sqlalchemy.types.Float(precision=3),
