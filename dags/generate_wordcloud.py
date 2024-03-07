@@ -19,16 +19,6 @@ def yesterday_date():
     return now.strftime("%Y%m%d")
 
 
-def download_file_from_s3(bucket_name, s3_key, local_path):
-    """
-    S3에서 파일을 다운로드하여 지정된 로컬 경로에 저장합니다.
-    """
-    s3 = boto3.client('s3')
-    with open(local_path, 'wb') as file:
-        s3.download_fileobj(bucket_name, s3_key, file)
-
-
-
 # DAG 정의
 default_args = {
     "owner": "airflow",
@@ -92,8 +82,9 @@ def download_file_from_s3(**kwargs):
         ti.xcom_push(key=f"local_path_{code}", value=local_path)
         logging.info("33333")
 
-        #local_path = '/desired/local/path/your-file-name.csv'
-        download_file_from_s3(bucket_name, key, local_path)
+        s3 = boto3.client('s3')
+        with open(local_path, 'wb') as file:
+            s3.download_fileobj(bucket_name, key, file)
 
 
 def generate_wordcloud(**kwargs):
