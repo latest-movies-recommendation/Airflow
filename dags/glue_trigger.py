@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
+from airflow.providers.amazon.aws.sensors.glue import GlueJobSensor
 
 default_args = {
     "owner": "airflow",
@@ -15,12 +16,13 @@ default_args = {
 dag = DAG(
     "glue_job_trigger",
     default_args=default_args,
-    description="Trigger an AWS Glue job from Airflow",
+    description="Trigger an AWS Glue job from Airflow and wait for completion",
     schedule_interval=timedelta(days=1),
     start_date=datetime(2024, 1, 1),
     catchup=False,
 )
 
+# 첫 번째 Glue 작업 실행
 trigger_glue_job_movie = GlueJobOperator(
     task_id="trigger_glue_job_movie",
     job_name="de-4-2-movie",
@@ -30,6 +32,16 @@ trigger_glue_job_movie = GlueJobOperator(
     dag=dag,
 )
 
+# 첫 번째 Glue 작업 완료 대기
+wait_for_glue_job_movie = GlueJobSensor(
+    task_id="wait_for_glue_job_movie",
+    job_name="de-4-2-movie",
+    aws_conn_id="aws_conn",
+    region_name="ap-northeast-2",
+    dag=dag,
+)
+
+# 두 번째 Glue 작업 실행
 trigger_glue_job_directors = GlueJobOperator(
     task_id="trigger_glue_job_directors",
     job_name="de-4-2-kofic-movie-directors",
@@ -39,4 +51,5 @@ trigger_glue_job_directors = GlueJobOperator(
     dag=dag,
 )
 
-trigger_glue_job_movie >> trigger_glue_job_directors
+# 작업 흐름 정의
+trigger_glue_job_movie >> wait_for_glue_job_movie >> trigger_glue_job_directors
