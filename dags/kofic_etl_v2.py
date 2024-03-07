@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from io import StringIO
+import logging
 
 import pandas as pd
 import requests
@@ -118,12 +119,15 @@ def kofic_etl_v2():
 
         bucket_name = Variable.get("s3_bucket_name")
         s3_hook = S3Hook(aws_conn_id="aws_conn")
+        file_key = f"kofic/daily-box-office/{target_date}.csv"
         s3_hook.load_string(
             string_data=csv_data,
-            key=f"kofic/daily-box-office/{target_date}.csv",
+            key=file_key,
             bucket_name=bucket_name,
             replace=True,
         )
+        # 로그 메시지 추가
+        logging.info(f"File uploaded to S3: {bucket_name}/{file_key}")
         movie_cds = [
             movie.get("movieCd")
             for movie in data["boxOfficeResult"]["dailyBoxOfficeList"]
