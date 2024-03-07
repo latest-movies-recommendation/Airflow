@@ -173,7 +173,8 @@ def kofic_etl_v2():
     movie_cds_result = get_daily_box_office()
     get_movie(movie_cds=movie_cds_result)
 
-    movie_cds_result >> trigger_naver_crawler >> trigger_watcha_comments
+    movie_cds_result >> trigger_naver_crawler
+    movie_cds_result >> trigger_watcha_comments
 
 
 kofic_etl_v2()
