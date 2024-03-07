@@ -51,8 +51,8 @@ jobs:
     - name: Dongbin Upload DAGs to S3
       id: upload-s3
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DB_AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DB_AWS_SECRET_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DONGBIN_AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DONGBIN_AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: 'ap-northeast-2'
       # ./dags 디렉토리의 내용을 지정된 S3 버킷에 동기화
       # --delete 옵션은 S3 버킷에 있는데 로컬에 없는 파일을 삭제
