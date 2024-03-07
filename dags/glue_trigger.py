@@ -15,7 +15,7 @@ def check_glue_job_status(**kwargs):
     )
 
     # 여기서는 단순화를 위해 성공을 가정하고 있으나, 실제 로직에서는 glue_job_status를 검사하여 결정해야 합니다.
-    if glue_job_status == "Success" or "Up_for_retry":
+    if glue_job_status == "Success" or "Failed":
         return "trigger_glue_job_directors"
     else:
         return "wait_before_retrying"
