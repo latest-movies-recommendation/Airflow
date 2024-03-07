@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from io import StringIO
 
+import boto3
 import matplotlib.pyplot as plt
 import pandas as pd
 from airflow import DAG
@@ -11,7 +12,7 @@ from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator
 from konlpy.tag import Okt
 from wordcloud import WordCloud
-import boto3
+
 
 def yesterday_date():
     now = datetime.now() - timedelta(days=1)
