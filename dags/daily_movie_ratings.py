@@ -38,6 +38,7 @@ def daily_movie_ratings_dag():
                 csv_data = obj.get()["Body"].read().decode("utf-8")
                 naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :2]
                 naver_rating.rename({"movieCd": "code"}, inplace=True)
+                logging.info(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
                 return naver_rating.to_json(orient="split")
             else:
@@ -73,6 +74,7 @@ def daily_movie_ratings_dag():
                 average_rating = numeric_df.mean()
                 # 10점 만점이 되도록 평점 조정 후 딕셔너리에 저장
                 watcha_ratings[code] = average_rating * 2
+                logging.info(watcha_ratings)
             else:
                 print(f"No CSV file found for m{code}")
         return json.dumps(watcha_ratings)
