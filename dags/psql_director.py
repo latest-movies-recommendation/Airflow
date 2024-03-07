@@ -14,30 +14,32 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     create_table_query = """
-        BEGIN; -- 트랜잭션 시작
+        BEGIN;
 
-        DROP TABLE IF EXISTS temp; -- 기존 임시 테이블 삭제
+        DROP TABLE IF EXISTS temp;
 
         CREATE TABLE temp (
             movieCd VARCHAR(50) PRIMARY KEY,
             peopleNm VARCHAR(70),
             peopleNmEn VARCHAR(70)
-        ); -- 새 임시 테이블 생성
+        );
 
-        COPY temp (movieCd, peopleNm, peopleNmEn)
-        FROM '/path/to/csv/file.csv' -- CSV 파일의 경로를 지정해야 합니다.
-        WITH CSV HEADER DELIMITER ',' QUOTE '"'; -- CSV 파일 형식 지정
+        -- 임시 테이블로 데이터 복사 (이 부분은 COPY 명령을 통해 데이터를 가져오는 방식이 필요합니다.)
+        -- COPY temp (movieCd, peopleNm, peopleNmEn) FROM 'your_file.csv' WITH CSV HEADER DELIMITER ',' QUOTE '"';
 
+        -- 잘못된 데이터 삭제
         DELETE FROM temp
-        WHERE movieCd = 'movieCd' AND peopleNm = 'peopleNm'; -- 잘못된 데이터 삭제
+        WHERE movieCd = 'movieCd' AND peopleNm = 'peopleNm';
 
-        DROP TABLE IF EXISTS director; -- 기존 감독 테이블 삭제
+        -- 새로운 director 테이블 생성
+        DROP TABLE IF EXISTS director;
 
         CREATE TABLE director AS
         SELECT DISTINCT *
-        FROM temp; -- 새 감독 테이블 생성
+        FROM temp;
 
-        COMMIT; -- 트랜잭션 커밋
+        COMMIT;
+
     """
     cur.execute(create_table_query)
 

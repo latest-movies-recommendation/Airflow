@@ -83,7 +83,6 @@ def download_file_from_s3(**kwargs):
         logging.info("33333")
 
 
-
 def generate_wordcloud(**kwargs):
     ti = kwargs["ti"]
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
