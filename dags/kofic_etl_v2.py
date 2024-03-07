@@ -1,7 +1,7 @@
 import json
+import logging
 from datetime import datetime, timedelta
 from io import StringIO
-import logging
 
 import pandas as pd
 import requests
