@@ -63,7 +63,7 @@ trigger_glue_job_movie = GlueJobOperator(
 branching = BranchPythonOperator(
     task_id="branching",
     python_callable=check_glue_job_status,
-    trigger_rule = 'all_done',
+    trigger_rule="all_done",
     dag=dag,
 )
 
