@@ -154,6 +154,13 @@ def upload_to_s3(**kwargs):
 
 
 # Task 정의
+box_office_task = PythonOperator(
+    task_id="get_daily_box_office",
+    python_callable=get_daily_box_office,
+    provide_context=True,
+    dag=dag,
+)
+
 download_task = PythonOperator(
     task_id="download_file_from_s3",
     python_callable=download_file_from_s3,
@@ -176,4 +183,4 @@ upload_to_s3_task = PythonOperator(
 )
 
 # Task 종속성 설정
-download_task >> generate_wordcloud_task >> upload_to_s3_task
+box_office_task >> download_task >> generate_wordcloud_task >> upload_to_s3_task
