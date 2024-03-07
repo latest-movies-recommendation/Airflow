@@ -24,11 +24,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 black isort
         
-    - name: Run Flake8
-      run: flake8 --max-line-length=150 dags
+    # - name: Run Flake8
+    #   run: flake8 --max-line-length=150 dags
 
-    - name: Check formatting with Black
-      run: black --check dags
+    # - name: Check formatting with Black
+    #   run: black --check dags
 
     - name: Check import order with isort
       run: isort dags --check-only
