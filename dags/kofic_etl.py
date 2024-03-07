@@ -9,7 +9,6 @@ from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
-
 def yesterday_date_format():
     now = datetime.now() - timedelta(days=1)
     return now.strftime("%Y%m%d")
