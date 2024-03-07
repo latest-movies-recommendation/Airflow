@@ -123,11 +123,14 @@ def kofic_etl_v2():
             bucket_name=bucket_name,
             replace=True,
         )
-        movie_cds = [movie.get("movieCd") for movie in data ["boxOfficeResult"]["dailyBoxOfficeList"]]
+        movie_cds = [
+            movie.get("movieCd")
+            for movie in data["boxOfficeResult"]["dailyBoxOfficeList"]
+        ]
         return movie_cds
 
     daily_box_office_data = get_daily_box_office()
-    
+
     @task
     def get_movie(movie_cds):
         api_key = Variable.get("kofic_key")
@@ -160,5 +163,6 @@ def kofic_etl_v2():
     movie_cds_result = get_movie()
 
     daily_box_office_data >> movie_cds_result
+
 
 kofic_etl_v2()
