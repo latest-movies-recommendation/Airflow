@@ -95,7 +95,7 @@ def daily_movie_ratings_dag():
         watcha_rating_df['code'] = watcha_rating_df['code'].astype(str)
 
         merged_df = pd.merge(naver_ratings, watcha_rating_df, on="code", how="left")
-
+        logging.info(merged_df)
         # CSV 파일로 저장
         merged_csv_path = "/tmp/merged_movie_ratings.csv"
         merged_df.to_csv(merged_csv_path, index=False)
@@ -115,6 +115,7 @@ def daily_movie_ratings_dag():
         # 'entire_grade' 컬럼을 'naver_rating'으로 간주하고, 데이터 타입을 float으로 변환
         merged_df["entire_grade"] = merged_df["entire_grade"].astype(float)
         merged_df["watcha_rating"] = merged_df["watcha_rating"].astype(float)
+        logging.info(merged_df.head())
 
         # PostgresHook 사용
         postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
