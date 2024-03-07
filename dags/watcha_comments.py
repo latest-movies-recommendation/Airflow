@@ -7,6 +7,7 @@ from airflow import DAG
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
@@ -264,3 +265,12 @@ scraping_watcha = PythonOperator(
 
 
 get_daily_box_office >> scraping_watcha
+
+watcha_comment = scraping_watcha
+# Trigger wordcloud_generation DAG
+trigger_wordcloud_generation = TriggerDagRunOperator(
+    task_id="trigger_wordcloud_generation",
+    trigger_dag_id="wordcloud_generation",  # Make sure this matches the dag_id of the watcha_comments DAG
+)
+
+watcha_comment >> trigger_wordcloud_generation
