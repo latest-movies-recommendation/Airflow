@@ -71,6 +71,9 @@ def update_s3_file(dataframe, s3_key):
         return
 
     try:
+        s3_dataframe['movieCd'] = s3_dataframe['movieCd'].astype(str)
+        dataframe['movieCd'] = dataframe['movieCd'].astype(str)
+
         merged_df = pd.concat([s3_dataframe, dataframe]).drop_duplicates(keep=False)
         csv_buffer = StringIO()
         merged_df.to_csv(csv_buffer, index=False)
@@ -97,9 +100,12 @@ def update_s3_score_file(dataframe, s3_key, movies):
         return
 
     try:
+        s3_dataframe['movieCd'] = s3_dataframe['movieCd'].astype(str)
+        dataframe['movieCd'] = dataframe['movieCd'].astype(str)
+        
         # 원래 파일에 있던 영화 삭제 후 다시 평점 업데이트
         for movie in movies:
-            s3_dataframe = s3_dataframe[s3_dataframe["movie"] != movie]
+            s3_dataframe = s3_dataframe[s3_dataframe["movieNm"] != movie]
 
         merged_df = pd.concat([s3_dataframe, dataframe])
 
@@ -153,9 +159,9 @@ def s3_to_naver_movie_list():
             csv_data = obj.get()["Body"].read().decode("utf-8")
             df = pd.read_csv(StringIO(csv_data))
 
-            if "movie" not in df.columns:
-                raise ValueError("movie 컬럼이 데이터프레임에 존재하지 않습니다.")
-            movies = df["movie"].tolist()
+            if "movieNm" not in df.columns:
+                raise ValueError("movieNm 컬럼이 데이터프레임에 존재하지 않습니다.")
+            movies = df["movieNm"].tolist()
             logging.info(movies)
             return movies
         else:
@@ -380,7 +386,7 @@ def critic_review_crawling(**kwargs):
                     time.sleep(1)
                     break
         except NoSuchElementException:
-            info_critic_score[movie] = "아직 평점 없음"
+            info_critic_score[movie] = "평점 없음"
             driver.get("https://www.naver.com")
             continue
 
@@ -448,7 +454,7 @@ def critic_review_crawling(**kwargs):
 
             critic_review_df = pd.DataFrame(
                 {
-                    "movie": [movie] * len(name),
+                    "movieNm": [movie] * len(name),
                     "movieCd": [code] * len(name),
                     "name": name,
                     "review": critic_review,
@@ -496,6 +502,7 @@ def naver_review_crawling(**kwargs):
     movies = dict(map(reversed, dic.items()))  # key에 영화명, value에 영화코드
 
     critic_score = kwargs["ti"].xcom_pull(task_ids="critic_review_crawling")
+    naver_exists_movies = kwargs["ti"].xcom_pull(task_ids="s3_to_naver_movie_list")
 
     movieNm = []
     movieCd = []
@@ -666,7 +673,7 @@ def naver_review_crawling(**kwargs):
         upload_to_s3(naver_movie_reviews, "naver/naver_reviews.csv")
 
     if "naver/naver_movie_score.csv" in file_list:
-        update_s3_score_file(naver_movie_score, "naver/naver_movie_score.csv", movieNm)
+        update_s3_score_file(naver_movie_score, "naver/naver_movie_score.csv", naver_exists_movies)
     else:
         upload_to_s3(naver_movie_score, "naver/naver_movie_score.csv")
 
