@@ -102,7 +102,7 @@ def update_s3_score_file(dataframe, s3_key, movies):
     try:
         s3_dataframe['movieCd'] = s3_dataframe['movieCd'].astype(str)
         dataframe['movieCd'] = dataframe['movieCd'].astype(str)
-        
+
         # 원래 파일에 있던 영화 삭제 후 다시 평점 업데이트
         for movie in movies:
             s3_dataframe = s3_dataframe[s3_dataframe["movieNm"] != movie]
@@ -322,7 +322,7 @@ def naver_info_crawling(**kwargs):
             "movieNm": movieNm,
             "movieCd": movieCd,
             "story": movie_stories,
-            "group": movie_groups,
+            "accessible": movie_groups,
             "genre": movie_genres,
             "country": movie_countries,
             "running_time": movie_times,
