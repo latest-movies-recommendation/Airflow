@@ -82,7 +82,7 @@ dag = DAG(
     "psql_trusted_director",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
-    schedule_interval=timedelta(month=1),
+    schedule_interval="0 0 1 * *",
 )
 
 # 작업 정의
