@@ -79,7 +79,7 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "z_postgres_manipulation",
+    "psql_trusted_director",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
     schedule_interval=timedelta(month=1),
