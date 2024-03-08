@@ -69,18 +69,15 @@ def download_file_from_s3(**kwargs):
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
     logging.info(codes)
 
-    s3_hook = S3Hook(aws_conn_id="aws_conn")
     bucket_name = Variable.get("s3_bucket_name")
     for code in codes:
         key = f"watcha/movies/m{code}.csv"
-        # 올바른 방식으로 local_path 지정
-        local_path = f"/tmp/{code}.csv"  # 파일의 최종 저장 경로
-        logging.info("11111")
-        logging.info(key)
-        # s3_hook.download_file(key=key, bucket_name=bucket_name, local_path=local_path)
-        logging.info("22222")
-        ti.xcom_push(key=f"local_path_{code}", value=local_path)
-        logging.info("33333")
+        local_path = f"/tmp/{code}.csv"
+        logging.info(f"trying to download {key} to {local_path}")
+
+        s3 = boto3.client("s3")
+        with open(local_path, "wb") as file:
+            s3.download_fileobj(bucket_name, key, file)
 
 
 def generate_wordcloud(**kwargs):
@@ -88,8 +85,10 @@ def generate_wordcloud(**kwargs):
     codes = ti.xcom_pull(task_ids="get_daily_box_office", key="movies_code")
 
     for code in codes:
-        local_path = f"tmp/{code}.csv"
+        local_path = f"/tmp/{code}.csv"
         df = pd.read_csv(local_path, encoding="utf-8")
+        logging.info(f"Found file in {local_path}!")
+        logging.info(df.head())
 
         df["comment"] = df["comment"].str.replace("[^가-힣]", " ", regex=True)
         df["comment"] = df["comment"].astype(str)
