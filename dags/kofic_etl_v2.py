@@ -6,10 +6,10 @@ from io import StringIO
 import pandas as pd
 import requests
 from airflow.decorators import dag, task
+from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import Variable
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
 
 def yesterday_date_format():
@@ -132,7 +132,7 @@ def kofic_etl_v2():
             movie.get("movieCd")
             for movie in data["boxOfficeResult"]["dailyBoxOfficeList"]
         ]
-        return movie_cds
+        return df, movie_cds
 
     @task
     def get_movie(movie_cds):
@@ -162,6 +162,42 @@ def kofic_etl_v2():
                 replace=True,
             )
 
+    @task
+    def upload_to_postgres(df):
+        # PostgreSQL Hook을 사용하여 연결
+        postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
+        conn = postgres_hook.get_conn()
+        cur = conn.cursor()
+        try:
+            # 테이블이 이미 존재하는지 확인
+            check_table_query = "SELECT to_regclass('daily_box_office')"
+            cur.execute(check_table_query)
+            result = cur.fetchone()[0]
+            if result is None:
+                # 테이블이 존재하지 않으면 새로운 테이블 생성
+                create_table_query = f'CREATE TABLE daily_box_office ({", ".join(f"{col} VARCHAR" for col in df.columns)})'
+                cur.execute(create_table_query)
+                logging.info("Table daily_box_office created.")
+
+            # 테이블에 데이터가 있으면 지우고 삽입하도록 설정
+            if not df.empty:
+                delete_query = "DELETE FROM daily_box_office"
+                cur.execute(delete_query)
+
+            insert_query = f"INSERT INTO daily_box_office ({', '.join(df.columns)}) VALUES ({', '.join(['%s'] * len(df.columns))})"
+            for _, row in df.iterrows():
+                cur.execute(insert_query, tuple(row))
+                logging.info("SQL insert start")
+
+            conn.commit()
+            logging.info("Data successfully inserted into PostgreSQL RDS.")
+        except Exception as e:
+            logging.error(f"Error: {e}")
+            conn.rollback()
+        finally:
+            cur.close()
+            conn.close()
+
     # Trigger naver_crawler DAG . . ddd
     trigger_naver_crawler = TriggerDagRunOperator(
         task_id="trigger_naver_crawler",
@@ -180,7 +216,7 @@ def kofic_etl_v2():
         trigger_dag_id="daily_box_office_rds",  # Make sure this matches the dag_id of the watcha_comments DAG
     )
     # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
-    movie_cds_result = get_daily_box_office()
+    df, movie_cds_result = get_daily_box_office()
     get_movie(movie_cds=movie_cds_result)
 
     movie_cds_result >> trigger_naver_crawler
