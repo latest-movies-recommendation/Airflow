@@ -127,7 +127,7 @@ def daily_movie_ratings_dag():
         execution_date = context["ds"]
         date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         file_name = f"{date}_rating.csv"
-        key = "daily-movie-ratings/{file_name}"
+        key = f"daily-movie-ratings/{file_name}"
         merged_df = pd.read_csv(merged_csv_path)
         s3_hook = S3Hook(aws_conn_id="aws_conn")
         s3_bucket_name = Variable.get("s3_bucket_name")
