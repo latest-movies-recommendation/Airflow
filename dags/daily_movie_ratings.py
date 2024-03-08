@@ -2,8 +2,8 @@ import json
 import logging
 from datetime import datetime, timedelta
 from io import StringIO
-import numpy as np
 
+import numpy as np
 import pandas as pd
 import sqlalchemy
 from airflow.decorators import dag, task
@@ -39,9 +39,17 @@ def daily_movie_ratings_dag():
                 # CSV 파일 데이터를 데이터프레임으로 읽어온 후 전처리
                 csv_data = obj.get()["Body"].read().decode("utf-8")
                 naver_rating = pd.read_csv(StringIO(csv_data))
-                naver_rating.rename(columns={"movieNm": "movie_name", "movieCd": "movie_code",
-                                             "entire_grade": "naver_rating", "male_grade": "naver_male",
-                                             "female_grade": "naver_female", "critic_grade": "naver_critics"}, inplace=True)
+                naver_rating.rename(
+                    columns={
+                        "movieNm": "movie_name",
+                        "movieCd": "movie_code",
+                        "entire_grade": "naver_rating",
+                        "male_grade": "naver_male",
+                        "female_grade": "naver_female",
+                        "critic_grade": "naver_critics",
+                    },
+                    inplace=True,
+                )
                 naver_rating = naver_rating.replace("평점 없음", np.nan)
                 logging.info(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
@@ -143,7 +151,13 @@ def daily_movie_ratings_dag():
         # CSV 파일에서 DataFrame 로드
         merged_df = pd.read_csv(merged_csv_path)
 
-        target_columns = ["watcha_rating", "naver_rating", "naver_male", "naver_female", "naver_critics"]
+        target_columns = [
+            "watcha_rating",
+            "naver_rating",
+            "naver_male",
+            "naver_female",
+            "naver_critics",
+        ]
         merged_df[target_columns] = merged_df[target_columns].astype(float)
 
         # PostgresHook 사용
@@ -166,7 +180,7 @@ def daily_movie_ratings_dag():
                 "watcha_rating": sqlalchemy.types.Float(precision=3),
                 "naver_male": sqlalchemy.types.Float(precision=3),
                 "naver_female": sqlalchemy.types.Float(precision=3),
-                "naver_critics": sqlalchemy.types.Float(precision=3)
+                "naver_critics": sqlalchemy.types.Float(precision=3),
             },
         )
 
