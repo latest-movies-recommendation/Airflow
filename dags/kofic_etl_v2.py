@@ -134,6 +134,14 @@ def kofic_etl_v2():
         ]
         return df, movie_cds
 
+    # get_daily_box_office 함수로부터 결과를 받습니다.
+    get_daily_box_office_result = get_daily_box_office()
+
+    # 개별 결과에 접근합니다.
+    # 이 부분은 get_daily_box_office 함수 호출 직후에 위치해야 합니다.
+    df = get_daily_box_office_result.output[0]
+    movie_cds_result = get_daily_box_office_result.output[1]
+
     @task
     def get_movie(movie_cds):
         api_key = Variable.get("kofic_key")
