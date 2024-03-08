@@ -64,7 +64,7 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "psql_trusted_director",
+    "psql_trusted_actor",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
     schedule_interval="0 0 1 * *",
