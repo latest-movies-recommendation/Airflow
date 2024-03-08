@@ -76,8 +76,8 @@ def download_file_from_s3(**kwargs):
         logging.info(f"trying to download {key} to {local_path}")
         logging.info("33333")
 
-        s3 = boto3.client('s3')
-        with open(local_path, 'wb') as file:
+        s3 = boto3.client("s3")
+        with open(local_path, "wb") as file:
             s3.download_fileobj(bucket_name, key, file)
 
 
