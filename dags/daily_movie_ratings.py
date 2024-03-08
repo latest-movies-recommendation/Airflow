@@ -3,10 +3,12 @@ import logging
 from datetime import datetime, timedelta
 from io import StringIO
 
+import numpy as np
 import pandas as pd
 import sqlalchemy
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from airflow.operators.python import get_current_context
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
@@ -34,11 +36,21 @@ def daily_movie_ratings_dag():
                 key=s3_key, bucket_name=Variable.get("s3_bucket_name")
             )
             if obj:
-                # CSV 파일 데이터를 Pandas DataFrame으로 읽어오기
+                # CSV 파일 데이터를 데이터프레임으로 읽어온 후 전처리
                 csv_data = obj.get()["Body"].read().decode("utf-8")
-                naver_rating = pd.read_csv(StringIO(csv_data)).iloc[:, :3]
-                naver_rating.rename(columns={"movieNm": "movie_name"}, inplace=True)
-                naver_rating.rename(columns={"movieCd": "movie_code"}, inplace=True)
+                naver_rating = pd.read_csv(StringIO(csv_data))
+                naver_rating.rename(
+                    columns={
+                        "movieNm": "movie_name",
+                        "movieCd": "movie_code",
+                        "entire_grade": "naver_rating",
+                        "male_grade": "naver_male",
+                        "female_grade": "naver_female",
+                        "critic_grade": "naver_critics",
+                    },
+                    inplace=True,
+                )
+                naver_rating = naver_rating.replace("평점 없음", np.nan)
                 logging.info(naver_rating)
                 logging.info(f"{s3_key} 파일 다운로드 및 데이터프레임으로의 변환 성공!")
                 return naver_rating.to_json(orient="split")
@@ -107,6 +119,30 @@ def daily_movie_ratings_dag():
         return merged_csv_path
 
     @task
+    def upload_to_s3(merged_csv_path):
+        if merged_csv_path is None:
+            logging.info("병합된 평점 데이터 파일이 제공되지 않았습니다.")
+            return
+        context = get_current_context()
+        execution_date = context["ds"]
+        date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
+        file_name = f"{date}_rating.csv"
+        key = "daily-movie-ratings/{file_name}"
+        merged_df = pd.read_csv(merged_csv_path)
+        s3_hook = S3Hook(aws_conn_id="aws_conn")
+        s3_bucket_name = Variable.get("s3_bucket_name")
+        csv_buffer = StringIO()
+        merged_df.to_csv(csv_buffer, index=False)
+        csv_string = csv_buffer.getvalue()
+        s3_hook.load_string(
+            string_data=csv_string,
+            key=key,
+            bucket_name=s3_bucket_name,
+            replace=True,
+        )
+        logging.info(f"{file_name} S3에 신규 업로드 완료!")
+
+    @task
     def upload_to_postgres(merged_csv_path):
         if merged_csv_path is None:
             logging.info("병합된 평점 데이터 파일이 제공되지 않았습니다.")
@@ -115,16 +151,20 @@ def daily_movie_ratings_dag():
         # CSV 파일에서 DataFrame 로드
         merged_df = pd.read_csv(merged_csv_path)
 
-        # 'entire_grade' 컬럼을 'naver_rating'으로 간주하고, 데이터 타입을 float으로 변환
-        merged_df["entire_grade"] = merged_df["entire_grade"].astype(float)
-        merged_df["watcha_rating"] = merged_df["watcha_rating"].astype(float)
+        target_columns = [
+            "watcha_rating",
+            "naver_rating",
+            "naver_male",
+            "naver_female",
+            "naver_critics",
+        ]
+        merged_df[target_columns] = merged_df[target_columns].astype(float)
 
         # PostgresHook 사용
         postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
         engine = postgres_hook.get_sqlalchemy_engine()
 
         # DataFrame을 SQL 테이블에 삽입
-        merged_df.rename(columns={"entire_grade": "naver_rating"}, inplace=True)
         logging.info(merged_df.head())
 
         merged_df.to_sql(
@@ -138,14 +178,23 @@ def daily_movie_ratings_dag():
                 "movie_code": sqlalchemy.types.VARCHAR(),
                 "naver_rating": sqlalchemy.types.Float(precision=3),
                 "watcha_rating": sqlalchemy.types.Float(precision=3),
+                "naver_male": sqlalchemy.types.Float(precision=3),
+                "naver_female": sqlalchemy.types.Float(precision=3),
+                "naver_critics": sqlalchemy.types.Float(precision=3),
             },
         )
 
-    # 태스크 플로우 정의
+    # 태스크 정의
     naver_ratings_json = get_naver_ratings()
     watcha_ratings_json = get_watcha_ratings(naver_ratings_json)
     merged_csv_path = merge_ratings(naver_ratings_json, watcha_ratings_json)
-    upload_to_postgres(merged_csv_path)
+
+    # 병렬 실행을 위한 플로우 설정
+    upload_to_s3_task = upload_to_s3(merged_csv_path)
+    upload_to_postgres_task = upload_to_postgres(merged_csv_path)
+
+    # 의존성 설정
+    merged_csv_path >> [upload_to_s3_task, upload_to_postgres_task]
 
 
 dag_instance = daily_movie_ratings_dag()
