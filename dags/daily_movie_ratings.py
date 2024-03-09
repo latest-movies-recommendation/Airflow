@@ -10,7 +10,7 @@ from airflow.decorators import dag, task
 from airflow.models import Variable
 from airflow.operators.python import get_current_context
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.postgres.hooks.postgres import PostgresHook
+from sqlalchemy import create_engine
 
 default_args = {
     "owner": "eunji",
@@ -160,9 +160,10 @@ def daily_movie_ratings_dag():
         ]
         merged_df[target_columns] = merged_df[target_columns].astype(float)
 
-        # PostgresHook 사용
-        postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
-        engine = postgres_hook.get_sqlalchemy_engine()
+        postgres_user = Variable.get("postgres_user")
+        postgres_pwd = Variable.get("postgres_pwd")
+        postgres_endpoint = Variable.get("postgres_endpoint")
+        engine = create_engine(f'postgresql+psycopg2://{postgres_user}:{postgres_pwd}@{postgres_endpoint}:5432/postgres')
 
         # DataFrame을 SQL 테이블에 삽입
         logging.info(merged_df.head())
