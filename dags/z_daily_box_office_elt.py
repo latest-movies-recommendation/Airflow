@@ -30,7 +30,7 @@ default_args = {
     schedule_interval="0 2 * * *",
     catchup=False,
 )
-def daily_box_office_elt():
+def z_daily_box_office_elt():
     @task
     def daily_box_office_s3_to_postgres():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
@@ -188,4 +188,4 @@ def daily_box_office_elt():
     movie >> box_office
 
 
-daily_box_office_elt()
+z_daily_box_office_elt()
