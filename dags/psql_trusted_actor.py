@@ -12,7 +12,7 @@ def manipulate_postgres_data():
     conn = postgres_hook.get_conn()
     cur = conn.cursor()
 
-    # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
+    # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성 ..
     query = """
         -- 믿고보는 배우(한달에 한번실행)
         -- 테이블의 모든 행 삭제
