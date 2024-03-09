@@ -163,7 +163,9 @@ def daily_movie_ratings_dag():
         postgres_user = Variable.get("postgres_user")
         postgres_pwd = Variable.get("postgres_pwd")
         postgres_endpoint = Variable.get("postgres_endpoint")
-        engine = create_engine(f'postgresql+psycopg2://{postgres_user}:{postgres_pwd}@{postgres_endpoint}:5432/postgres')
+        engine = create_engine(
+            f"postgresql+psycopg2://{postgres_user}:{postgres_pwd}@{postgres_endpoint}:5432/postgres"
+        )
 
         # DataFrame을 SQL 테이블에 삽입
         logging.info(merged_df.head())
