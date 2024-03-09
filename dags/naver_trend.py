@@ -88,7 +88,7 @@ def upload_to_rds(**kwargs):
     cursor = connection.cursor()
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS naver_trends (
+        CREATE TABLE IF NOT EXISTS naver_trend (
             date DATE NOT NULL,
             keyword VARCHAR(255) NOT NULL,
             ratio FLOAT NOT NULL
@@ -100,7 +100,7 @@ def upload_to_rds(**kwargs):
     psycopg2.extras.execute_batch(
         cursor,
         """
-    INSERT INTO naver_trends (date, keyword, ratio) VALUES (%s, %s, %s)
+    INSERT INTO naver_trend (date, keyword, ratio) VALUES (%s, %s, %s)
     """,
         list(csv_reader),
     )
