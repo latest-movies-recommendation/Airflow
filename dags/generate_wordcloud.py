@@ -116,7 +116,6 @@ def generate_wordcloud(**kwargs):
         else:
             df_word = df_word[df_word["count"] >= 2]
 
-
         dic_word = df_word.set_index("word").to_dict()["count"]
         wc = WordCloud(
             font_path="/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
