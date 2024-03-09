@@ -132,10 +132,11 @@ def kofic_etl_v2():
             movie.get("movieCd")
             for movie in data["boxOfficeResult"]["dailyBoxOfficeList"]
         ]
-        return {"df": df, "movie_cds": movie_cds}
+        # return {"df": df, "movie_cds": movie_cds}
+        return movie_cds
 
     @task
-    def get_movie(result):
+    def get_movie(movie_cds):
         api_key = Variable.get("kofic_key")
 
         # context = get_current_context()
@@ -143,7 +144,7 @@ def kofic_etl_v2():
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
 
-        movie_cds = result["movie_cds"]
+        # movie_cds = result["movie_cds"]
         for movie_cd in movie_cds:
             response = requests.get(
                 "http://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieInfo.json",
@@ -163,44 +164,44 @@ def kofic_etl_v2():
                 replace=True,
             )
 
-    @task
-    def upload_to_postgres(df):
-        # PostgreSQL Hook을 사용하여 연결
-        postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
-        conn = postgres_hook.get_conn()
-        cur = conn.cursor()
-        df = df["df"]
-        try:
-            # 테이블이 이미 존재하는지 확인
-            check_table_query = "SELECT to_regclass('daily_box_office')"
-            cur.execute(check_table_query)
-            result = cur.fetchone()[0]
-            if result is None:
-                # 테이블이 존재하지 않으면 새로운 테이블 생성
-                create_table_query = f'CREATE TABLE daily_box_office ({", ".join(f"{col} VARCHAR" for col in df.columns)})'
-                cur.execute(create_table_query)
-                logging.info("Table daily_box_office created.")
+    # @task
+    # def upload_to_postgres(df):
+    #     # PostgreSQL Hook을 사용하여 연결
+    #     postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
+    #     conn = postgres_hook.get_conn()
+    #     cur = conn.cursor()
+    #     df = df["df"]
+    #     try:
+    #         # 테이블이 이미 존재하는지 확인
+    #         check_table_query = "SELECT to_regclass('daily_box_office')"
+    #         cur.execute(check_table_query)
+    #         result = cur.fetchone()[0]
+    #         if result is None:
+    #             # 테이블이 존재하지 않으면 새로운 테이블 생성
+    #             create_table_query = f'CREATE TABLE daily_box_office ({", ".join(f"{col} VARCHAR" for col in df.columns)})'
+    #             cur.execute(create_table_query)
+    #             logging.info("Table daily_box_office created.")
+    #
+    #         # 테이블에 데이터가 있으면 지우고 삽입하도록 설정
+    #         if not df.empty:
+    #             delete_query = "DELETE FROM daily_box_office"
+    #             cur.execute(delete_query)
+    #
+    #         insert_query = f"INSERT INTO daily_box_office ({', '.join(df.columns)}) VALUES ({', '.join(['%s'] * len(df.columns))})"
+    #         for _, row in df.iterrows():
+    #             cur.execute(insert_query, tuple(row))
+    #             logging.info("SQL insert start")
+    #
+    #         conn.commit()
+    #         logging.info("Data successfully inserted into PostgreSQL RDS.")
+    #     except Exception as e:
+    #         logging.error(f"Error: {e}")
+    #         conn.rollback()
+    #     finally:
+    #         cur.close()
+    #         conn.close()
 
-            # 테이블에 데이터가 있으면 지우고 삽입하도록 설정
-            if not df.empty:
-                delete_query = "DELETE FROM daily_box_office"
-                cur.execute(delete_query)
-
-            insert_query = f"INSERT INTO daily_box_office ({', '.join(df.columns)}) VALUES ({', '.join(['%s'] * len(df.columns))})"
-            for _, row in df.iterrows():
-                cur.execute(insert_query, tuple(row))
-                logging.info("SQL insert start")
-
-            conn.commit()
-            logging.info("Data successfully inserted into PostgreSQL RDS.")
-        except Exception as e:
-            logging.error(f"Error: {e}")
-            conn.rollback()
-        finally:
-            cur.close()
-            conn.close()
-
-    # Trigger naver_crawler DAG . . ddd
+    # Trigger naver_crawler DAG
     trigger_naver_crawler = TriggerDagRunOperator(
         task_id="trigger_naver_crawler",
         trigger_dag_id="naver_crawler",  # Make sure this matches the dag_id of the naver_crawler DAG
@@ -218,17 +219,17 @@ def kofic_etl_v2():
         trigger_dag_id="daily_box_office_rds",  # Make sure this matches the dag_id of the watcha_comments DAG
     )
     # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
-    result = get_daily_box_office()
-    get_movie(result)
-    upload_to_postgres(result)
+    # result = get_daily_box_office()
+    # get_movie(result)
+    # upload_to_postgres(result)
 
-    # movie_cds_result = get_daily_box_office()
-    # get_movie(movie_cds=movie_cds_result)
+    movie_cds_result = get_daily_box_office()
+    get_movie(movie_cds=movie_cds_result)
     # upload_to_postgres(df)
 
-    result >> trigger_naver_crawler
-    result >> trigger_watcha_comments
-    result >> trigger_daily_box_office_rds
+    movie_cds_result >> trigger_naver_crawler
+    movie_cds_result >> trigger_watcha_comments
+    movie_cds_result >> trigger_daily_box_office_rds
 
 
 kofic_etl_v2()
