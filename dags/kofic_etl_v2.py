@@ -132,10 +132,10 @@ def kofic_etl_v2():
             movie.get("movieCd")
             for movie in data["boxOfficeResult"]["dailyBoxOfficeList"]
         ]
-        return df, movie_cds
+        return {"df": df, "movie_cds": movie_cds}
 
     @task
-    def get_movie(movie_cds):
+    def get_movie(result):
         api_key = Variable.get("kofic_key")
 
         # context = get_current_context()
@@ -143,6 +143,7 @@ def kofic_etl_v2():
         # target_date = datetime.strptime(execution_date, "%Y-%m-%d").strftime("%Y%m%d")
         target_date = yesterday_date_format()
 
+        movie_cds = result["movie_cds"]
         for movie_cd in movie_cds:
             response = requests.get(
                 "http://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieInfo.json",
@@ -168,6 +169,7 @@ def kofic_etl_v2():
         postgres_hook = PostgresHook(postgres_conn_id="postgres_conn")
         conn = postgres_hook.get_conn()
         cur = conn.cursor()
+        df = df["df"]
         try:
             # 테이블이 이미 존재하는지 확인
             check_table_query = "SELECT to_regclass('daily_box_office')"
@@ -216,9 +218,13 @@ def kofic_etl_v2():
         trigger_dag_id="daily_box_office_rds",  # Make sure this matches the dag_id of the watcha_comments DAG
     )
     # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
-    df, movie_cds_result = get_daily_box_office()
-    get_movie(movie_cds=movie_cds_result)
-    upload_to_postgres(df)
+    result = get_daily_box_office()
+    get_movie(result)
+    upload_to_postgres(result)
+
+    # df, movie_cds_result = get_daily_box_office()
+    # get_movie(movie_cds=movie_cds_result)
+    # upload_to_postgres(df)
 
     movie_cds_result >> trigger_naver_crawler
     movie_cds_result >> trigger_watcha_comments
