@@ -107,7 +107,15 @@ def generate_wordcloud(**kwargs):
             .count()
             .sort_values("count", ascending=False)
         )
-        df_word = df_word[df_word["count"] >= 5]
+        if (df_word["count"] >= 15).sum() >= 5:
+            df_word = df_word[df_word["count"] >= 7]
+        elif (df_word["count"] >= 10).sum() >= 3:
+            df_word = df_word[df_word["count"] >= 3]
+        elif df_word["count"].sum() == 0:
+            continue
+        else:
+            df_word = df_word[df_word["count"] >= 2]
+
 
         dic_word = df_word.set_index("word").to_dict()["count"]
         wc = WordCloud(
