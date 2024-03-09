@@ -6,3 +6,4 @@ requests==2.28.2
 webdriver-manager==4.0.1
 apache-airflow-providers-slack==7.2.0
 apache-airflow-providers-amazon==7.1.0
+matplotlib
