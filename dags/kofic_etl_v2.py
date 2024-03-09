@@ -222,13 +222,13 @@ def kofic_etl_v2():
     get_movie(result)
     upload_to_postgres(result)
 
-    # df, movie_cds_result = get_daily_box_office()
+    # movie_cds_result = get_daily_box_office()
     # get_movie(movie_cds=movie_cds_result)
     # upload_to_postgres(df)
 
-    movie_cds_result >> trigger_naver_crawler
-    movie_cds_result >> trigger_watcha_comments
-    movie_cds_result >> trigger_daily_box_office_rds
+    result >> trigger_naver_crawler
+    result >> trigger_watcha_comments
+    result >> trigger_daily_box_office_rds
 
 
 kofic_etl_v2()
