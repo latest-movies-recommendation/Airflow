@@ -1,0 +1,67 @@
+name: CI for DAGs
+
+on:
+  pull_request:
+    paths:
+      - 'dags/**'
+      - 'Airflow-new/dags/**' 
+    branches: [ "main", "develop" ]
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+        
+    # - name: Run Flake8
+    #   run: flake8 --max-line-length=150 dags
+
+    # - name: Check formatting with Black
+    #   run: black --check dags
+
+    - name: Check import order with isort
+      run: isort dags --check-only
+
+  deploy:
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+
+    - name: Install AWS CLI
+      run: pip install awscli
+
+    - name: Upload DAGs to S3
+      id: upload-s3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: 'ap-northeast-2'
+      # ./dags 디렉토리의 내용을 지정된 S3 버킷에 동기화
+      # --delete 옵션은 S3 버킷에 있는데 로컬에 없는 파일을 삭제
+      run: |
+        if ! aws s3 sync ./dags s3://de-4-2-dev-bucket/dags; then
+          echo "S3 sync failed" && exit 1
+        fi
+
+    - name: Notify Slack on Failure
+      if: failure()
+      run: |
+        curl -X POST -H 'Content-type: application/json' --data '{"text":"S3 업로드 실패: dags 디렉토리 동기화에 실패했습니다."}' ${{ secrets.SLACK_WEBHOOK_URL }}
