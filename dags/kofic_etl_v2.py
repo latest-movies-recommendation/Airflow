@@ -132,7 +132,7 @@ def kofic_etl_v2():
             movie.get("movieCd")
             for movie in data["boxOfficeResult"]["dailyBoxOfficeList"]
         ]
-        return df, movie_cds
+        return {"df": df, "movie_cds": movie_cds}
 
     @task
     def get_movie(movie_cds):
@@ -216,9 +216,16 @@ def kofic_etl_v2():
         trigger_dag_id="daily_box_office_rds",  # Make sure this matches the dag_id of the watcha_comments DAG
     )
     # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
-    df, movie_cds_result = get_daily_box_office()
+    result = get_daily_box_office()
+    df_result = result.output["df"]
+    movie_cds_result = result.output["movie_cds"]
+
     get_movie(movie_cds=movie_cds_result)
-    upload_to_postgres(df)
+    upload_to_postgres(df=df_result)
+
+    # df, movie_cds_result = get_daily_box_office()
+    # get_movie(movie_cds=movie_cds_result)
+    # upload_to_postgres(df)
 
     movie_cds_result >> trigger_naver_crawler
     movie_cds_result >> trigger_watcha_comments
