@@ -14,20 +14,32 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성 ..
     query = """
-        -- movie all
-        INSERT INTO djan_movie_all
-        SELECT DISTINCT ON (A.moviecd)
-            A.moviecd AS movie_code,
-            CAST(A.rank as integer) as rank,
-            CAST(A.rankinten AS INTEGER) AS rank_intensity,
-            A.movienm AS korean_name,
-            A.opendt AS open_date,
-            A.audiacc,
-            CAST(A.audicnt AS INTEGER) / NULLIF(CAST(A.showcnt AS INTEGER), 0) AS audicnt_showcnt,
-            B.genre, B.running_time
-        FROM daily_box_office AS A
-        JOIN movie_info AS B ON A.moviecd = B.moviecd
-        ORDER BY A.moviecd, A.opendt DESC;
+        --믿고보는 조연배우
+        TRUNCATE TABLE djan_trusted_subactor;
+        INSERT INTO djan_trusted_subactor (actor, number, avg_audience, audience_showcnt)
+        WITH tem AS (
+            SELECT moviecd, movienm, MAX(CAST(AUDIACC AS INTEGER)) AS AUDIACC, SUM(CAST(showcnt AS INTEGER)) AS showcnt, MAX(CAST(AUDIACC AS INTEGER)) / SUM(CAST(showcnt AS INTEGER)) AS audience_showcnt
+            FROM all_box_office
+            GROUP BY moviecd, movienm
+            HAVING MAX(CAST(AUDIACC AS INTEGER)) >= 1000000
+        )
+        SELECT
+            A.peoplenm,
+            COUNT(A.peoplenm) AS number,
+            AVG(B.audiacc) AS avg_audience,
+            AVG(B.audience_showcnt) AS audience_showcnt
+        FROM
+            tem AS B
+        JOIN
+            detail_actor AS A ON A.moviecd = B.moviecd
+        WHERE
+            CAST(A.actorpos AS INTEGER) >= 4 AND CAST(A.actorpos AS INTEGER) <= 9
+        GROUP BY
+            A.peoplenm
+        HAVING
+            AVG(B.audience_showcnt) >= 10 AND COUNT(A.peoplenm) >= 3
+        ORDER BY
+            avg(B.audiacc) DESC;
     """
     cur.execute(query)
 
@@ -50,15 +62,15 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "psql_movie_all",
+    "psql_djan_trusted_subactor",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
-    schedule_interval="0 12 * * *",
+    schedule_interval="0 0 1 * *",
 )
 
 # 작업 정의
 t1 = PythonOperator(
-    task_id="psql_movie_all",
+    task_id="manipulate_data",
     python_callable=manipulate_postgres_data,
     dag=dag,
 )
