@@ -148,7 +148,9 @@ def upload_to_s3(**kwargs):
 
         if not os.path.exists(wordcloud_image_path):
             # 이미지 파일이 없으면 다음 코드로 넘어감
-            print(f"File {wordcloud_image_path} 파일이 존재하지 않습니다. 다음으로 넘어갑니다...")
+            print(
+                f"File {wordcloud_image_path} 파일이 존재하지 않습니다. 다음으로 넘어갑니다..."
+            )
             continue
 
         # 이미지 업로드
