@@ -12,34 +12,41 @@ def manipulate_postgres_data():
     conn = postgres_hook.get_conn()
     cur = conn.cursor()
 
-    # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성 ..
+    # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     query = """
-        --믿고보는 조연배우
-        TRUNCATE TABLE djan_trusted_subactor;
-        INSERT INTO djan_trusted_subactor (actor, number, avg_audience, audience_showcnt)
+        -- djan_music_director 테이블
+        TRUNCATE TABLE djan_music_director;
+        INSERT INTO djan_music_director (peoplenm, work_count, average_audiacc, audience_showcnt)
         WITH tem AS (
-            SELECT moviecd, movienm, MAX(CAST(AUDIACC AS INTEGER)) AS AUDIACC, SUM(CAST(showcnt AS INTEGER)) AS showcnt, MAX(CAST(AUDIACC AS INTEGER)) / SUM(CAST(showcnt AS INTEGER)) AS audience_showcnt
-            FROM all_box_office
-            GROUP BY moviecd, movienm
-            HAVING MAX(CAST(AUDIACC AS INTEGER)) >= 1000000
+            SELECT
+                moviecd,
+                movienm,
+                MAX(cast(AUDIACC as int)) AS AUDIACC,
+                SUM(cast(showcnt as int)) AS showcnt,
+                MAX(cast(AUDIACC as int)) / SUM(cast(showcnt as int)) AS audience_showcnt
+            FROM
+                all_box_office
+            GROUP BY
+                moviecd,
+                movienm
+            HAVING
+                MAX(cast(AUDIACC as int)) >= 100000
         )
         SELECT
-            A.peoplenm,
-            COUNT(A.peoplenm) AS number,
-            AVG(B.audiacc) AS avg_audience,
-            AVG(B.audience_showcnt) AS audience_showcnt
+            B.peoplenm AS peoplenm,
+            COUNT(B.peoplenm) AS work_count,
+            AVG(A.AUDIACC) AS average_audiacc,
+            AVG(A.audience_showcnt) AS audience_showcnt
         FROM
-            tem AS B
+            tem AS A
         JOIN
-            detail_actor AS A ON A.moviecd = B.moviecd
+            detail_staff AS B ON A.moviecd = B.moviecd
         WHERE
-            CAST(A.actorpos AS INTEGER) >= 4 AND CAST(A.actorpos AS INTEGER) <= 9
+            B.staffrolenm = '음악'
         GROUP BY
-            A.peoplenm
-        HAVING
-            AVG(B.audience_showcnt) >= 10 AND COUNT(A.peoplenm) >= 3
+            B.peoplenm
         ORDER BY
-            avg(B.audiacc) DESC;
+            COUNT(B.peoplenm) DESC;     
     """
     cur.execute(query)
 
@@ -62,10 +69,10 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "psql_trusted_subactor",
+    "psql_djan_music_director",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
-    schedule_interval="0 0 1 * *",
+    schedule_interval="0 12 * * *",
 )
 
 # 작업 정의

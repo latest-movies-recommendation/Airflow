@@ -14,39 +14,11 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     query = """
-        -- djan_music_director 테이블
-        TRUNCATE TABLE djan_music_director;
-        INSERT INTO djan_music_director (peoplenm, work_count, average_audiacc, audience_showcnt)
-        WITH tem AS (
-            SELECT
-                moviecd,
-                movienm,
-                MAX(cast(AUDIACC as int)) AS AUDIACC,
-                SUM(cast(showcnt as int)) AS showcnt,
-                MAX(cast(AUDIACC as int)) / SUM(cast(showcnt as int)) AS audience_showcnt
-            FROM
-                all_box_office
-            GROUP BY
-                moviecd,
-                movienm
-            HAVING
-                MAX(cast(AUDIACC as int)) >= 100000
-        )
-        SELECT
-            B.peoplenm AS peoplenm,
-            COUNT(B.peoplenm) AS work_count,
-            AVG(A.AUDIACC) AS average_audiacc,
-            AVG(A.audience_showcnt) AS audience_showcnt
-        FROM
-            tem AS A
-        JOIN
-            detail_staff AS B ON A.moviecd = B.moviecd
-        WHERE
-            B.staffrolenm = '음악'
-        GROUP BY
-            B.peoplenm
-        ORDER BY
-            COUNT(B.peoplenm) DESC;     
+        -- 일일 평점정보
+        TRUNCATE TABLE djan_movie_rating;
+        INSERT INTO djan_movie_score (moviecd, movienm, naver_rating, naver_male, naver_female, naver_critics, watcha_rating)
+        select movie_code as moviecd, movie_name as movienm , naver_rating, naver_male, naver_female,naver_critics, watcha_rating
+        from daily_movie_ratings;
     """
     cur.execute(query)
 
@@ -69,7 +41,7 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "psql_music_director",
+    "psql_djan_movie_score",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
     schedule_interval="0 12 * * *",

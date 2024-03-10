@@ -12,17 +12,22 @@ def manipulate_postgres_data():
     conn = postgres_hook.get_conn()
     cur = conn.cursor()
 
-    # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
+    # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성 ..
     query = """
-    
-        -- 일일 영화리스트
-        TRUNCATE TABLE djan_movie_daily;
-        INSERT INTO djan_movie_daily
-        SELECT A.movie_code, A.rank, A.rank_intensity, A.korean_name, A.open_date, A.audiacc,
-            A.audicnt_showcnt,A.genre, A.running_time
-        from djan_movie_all as A
-        join daily_box_office as B on B.movienm =A.korean_name;
-
+        -- movie all
+        INSERT INTO djan_movie_all
+        SELECT DISTINCT ON (A.moviecd)
+            A.moviecd AS movie_code,
+            CAST(A.rank as integer) as rank,
+            CAST(A.rankinten AS INTEGER) AS rank_intensity,
+            A.movienm AS korean_name,
+            A.opendt AS open_date,
+            A.audiacc,
+            CAST(A.audicnt AS INTEGER) / NULLIF(CAST(A.showcnt AS INTEGER), 0) AS audicnt_showcnt,
+            B.genre, B.running_time
+        FROM daily_box_office AS A
+        JOIN movie_info AS B ON A.moviecd = B.moviecd
+        ORDER BY A.moviecd, A.opendt DESC;
     """
     cur.execute(query)
 
@@ -45,7 +50,7 @@ default_args = {
 
 # DAG 정의
 dag = DAG(
-    "psql_movie_daily",
+    "psql_djan_movie_all",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
     schedule_interval="0 12 * * *",
@@ -53,7 +58,7 @@ dag = DAG(
 
 # 작업 정의
 t1 = PythonOperator(
-    task_id="manipulate_data",
+    task_id="psql_djan_movie_all",
     python_callable=manipulate_postgres_data,
     dag=dag,
 )
