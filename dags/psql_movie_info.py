@@ -15,7 +15,7 @@ def manipulate_postgres_data():
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     query = """
         -- djan_movie_info 테이블
-        TRUNCATE TABLE djan_movie_info;
+        -- TRUNCATE TABLE djan_movie_info;
         INSERT INTO djan_movie_info (story, accessible, country, company, poster)
         SELECT A.story, A.accessible, A.country, A.company, A.poster
         FROM movie_info as A
