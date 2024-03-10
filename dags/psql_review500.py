@@ -54,7 +54,7 @@ dag = DAG(
     "s3_to_postgres_review500_dag",
     default_args=default_args,
     description="Load data from S3 to PostgreSQL review500 table",
-    schedule_interval=timedelta(days=1),
+    schedule_interval="0 0 0 * *",
 )
 
 load_reviews_to_rds = PythonOperator(
