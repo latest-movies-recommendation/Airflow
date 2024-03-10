@@ -15,11 +15,13 @@ def manipulate_postgres_data():
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     query = """
     --djan_comment_worker 테이블
-create table djan_comment_worker as
-select id,naver_review, count(naver_review) as same_coment ,review_score
-from REVIEW500
-group by id,naver_review, review_score
-order by count(naver_review) desc;"""
+    truncate table djan_comment_worker;
+    create table djan_comment_worker as
+    select id,naver_review, count(naver_review) as same_coment ,review_score
+    from REVIEW500
+    group by id,naver_review, review_score
+    order by count(naver_review) desc;
+    """
     cur.execute(query)
 
     # 변경 사항 커밋 및 연결 종료
