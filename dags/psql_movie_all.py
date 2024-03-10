@@ -53,7 +53,7 @@ dag = DAG(
     "psql_movie_all",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
-    schedule_interval="0 0 1 * *",
+    schedule_interval="0 12 * * *",
 )
 
 # 작업 정의

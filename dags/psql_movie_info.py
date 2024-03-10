@@ -16,10 +16,10 @@ def manipulate_postgres_data():
     query = """
         -- djan_movie_info 테이블
         -- TRUNCATE TABLE djan_movie_info;
-        INSERT INTO djan_movie_info (story, accessible, country, company, poster)
-        SELECT A.story, A.accessible, A.country, A.company, A.poster
+        INSERT INTO djan_movie_info (movie_code, story, accessible, country, company, poster)
+        SELECT A.moviecd as movie_code, A.story, A.accessible, A.country, A.company, A.poster
         FROM movie_info as A
-        JOIN daily_box_office as B ON A.movienm = B.movienm;
+        JOIN daily_box_office as B ON A.moviecd = B.moviecd;
     """
     cur.execute(query)
 
@@ -45,7 +45,7 @@ dag = DAG(
     "psql_movie_info",
     default_args=default_args,
     description="A simple DAG to manipulate PostgreSQL data",
-    schedule_interval="0 0 1 * *",
+    schedule_interval="0 12 * * *",
 )
 
 # 작업 정의
