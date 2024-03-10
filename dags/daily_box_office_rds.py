@@ -89,7 +89,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="z_daily_box_office_rds",
+    dag_id="daily_box_office_rds",
     schedule_interval=None,
     catchup=False,
     default_args=default_args,
