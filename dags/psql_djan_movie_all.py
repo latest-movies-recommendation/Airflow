@@ -14,20 +14,21 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성 ..
     query = """
-        -- movie all
-        INSERT INTO djan_movie_all
+    --djan_movie_all 테이블
+        INSERT INTO djan_movie_all (movie_code, rank, rank_intensity, korean_name, open_date, audiacc, audicnt_showcnt, genre, running_time)
         SELECT DISTINCT ON (A.moviecd)
-            A.moviecd AS movie_code,
-            CAST(A.rank as integer) as rank,
-            CAST(A.rankinten AS INTEGER) AS rank_intensity,
-            A.movienm AS korean_name,
-            A.opendt AS open_date,
+            A.moviecd,
+            CAST(A.rank AS INTEGER),
+            CAST(A.rankinten AS INTEGER),
+            A.movienm,
+            A.opendt,
             A.audiacc,
-            CAST(A.audicnt AS INTEGER) / NULLIF(CAST(A.showcnt AS INTEGER), 0) AS audicnt_showcnt,
+            CAST(A.audicnt AS INTEGER) / NULLIF(CAST(A.showcnt AS INTEGER), 0),
             B.genre, B.running_time
         FROM daily_box_office AS A
         JOIN movie_info AS B ON A.moviecd = B.moviecd
-        ORDER BY A.moviecd, A.opendt DESC;
+        ORDER BY A.moviecd, A.opendt DESC
+        ON CONFLICT (movie_code, open_date) DO NOTHING;
     """
     cur.execute(query)
 
