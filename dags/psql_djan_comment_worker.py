@@ -14,7 +14,7 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성
     query = """
-    --djan_comment_worker 테이블
+    --djan_comment_worker 테이블에 삽입
         INSERT INTO djan_comment_worker (naver_id, naver_review, same_comment, review_score)
         SELECT 
             id as naver_id, 
