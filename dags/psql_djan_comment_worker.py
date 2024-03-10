@@ -16,7 +16,6 @@ def manipulate_postgres_data():
     query = """
     --djan_comment_worker 테이블
     truncate table djan_comment_worker;
-    drop table if exists djan_comment_worker;
     create table djan_comment_worker as
     select id,naver_review, count(naver_review) as same_coment ,review_score
     from REVIEW500
