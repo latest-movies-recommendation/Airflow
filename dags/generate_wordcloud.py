@@ -90,6 +90,10 @@ def generate_wordcloud(**kwargs):
         logging.info(f"Found file in {local_path}!")
         logging.info(df.head())
 
+        if df.empty():
+            logging.info("리뷰가 없습니다! 워드클라우드를 생성할 수 없습니다.")
+            continue
+
         df["comment"] = df["comment"].str.replace("[^가-힣]", " ", regex=True)
         df["comment"] = df["comment"].astype(str)
         df.dropna(subset=["comment"], inplace=True)
