@@ -33,7 +33,7 @@ def manipulate_postgres_data():
         JOIN
             detail_actor AS A ON A.moviecd = B.moviecd
         WHERE
-            A.actorpos>=4 and A.actorpos<=9
+            CAST(A.actorpos AS INTEGER) >= 4 AND CAST(A.actorpos AS INTEGER) <= 9
         GROUP BY
             A.peoplenm
         HAVING
