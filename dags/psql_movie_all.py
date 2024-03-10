@@ -14,9 +14,9 @@ def manipulate_postgres_data():
 
     # 쿼리 실행: 기존 테이블에서 데이터를 선택하여 새로운 테이블을 생성 ..
     query = """
--- djan_movie_all 제작 쿼리
+        -- movie all
         INSERT INTO djan_movie_all
-        SELECT
+        SELECT DISTINCT ON (A.moviecd)
             A.moviecd AS movie_code,
             CAST(A.rank as integer) as rank,
             CAST(A.rankinten AS INTEGER) AS rank_intensity,
@@ -25,8 +25,9 @@ def manipulate_postgres_data():
             A.audiacc,
             CAST(A.audicnt AS INTEGER) / NULLIF(CAST(A.showcnt AS INTEGER), 0) AS audicnt_showcnt,
             B.genre, B.running_time
-        from daily_box_office as A
-        join djan_movie_info as B on B.moviecd=A.moviecd
+        FROM daily_box_office AS A
+        JOIN movie_info AS B ON A.moviecd = B.moviecd
+        ORDER BY A.moviecd, A.opendt DESC;
     """
     cur.execute(query)
 
