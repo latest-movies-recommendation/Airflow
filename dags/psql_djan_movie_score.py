@@ -19,6 +19,14 @@ def manipulate_postgres_data():
         INSERT INTO djan_movie_score (moviecd, movienm, naver_rating, naver_male, naver_female, naver_critics, watcha_rating)
         select movie_code as moviecd, movie_name as movienm , naver_rating, naver_male, naver_female,naver_critics, watcha_rating
         from daily_movie_ratings;
+        ON CONFLICT (moviecd)
+        DO UPDATE SET
+            movienm = EXCLUDED.movienm,
+            naver_rating = EXCLUDED.naver_rating,
+            naver_male = EXCLUDED.naver_male,
+            naver_female = EXCLUDED.naver_female,
+            naver_critics = EXCLUDED.naver_critics,
+            watcha_rating = EXCLUDED.watcha_rating;
     """
     cur.execute(query)
 
