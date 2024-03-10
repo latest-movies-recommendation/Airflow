@@ -18,7 +18,7 @@ def manipulate_postgres_data():
         -- TRUNCATE TABLE djan_movie_rating;
         INSERT INTO djan_movie_score (moviecd, movienm, naver_rating, naver_male, naver_female, naver_critics, watcha_rating)
         select movie_code as moviecd, movie_name as movienm , naver_rating, naver_male, naver_female,naver_critics, watcha_rating
-        from daily_movie_ratings;
+        from daily_movie_ratings
         ON CONFLICT (moviecd)
         DO UPDATE SET
             movienm = EXCLUDED.movienm,
