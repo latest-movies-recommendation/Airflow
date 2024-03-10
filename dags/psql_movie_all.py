@@ -26,7 +26,7 @@ def manipulate_postgres_data():
             CAST(A.audicnt AS INTEGER) / NULLIF(CAST(A.showcnt AS INTEGER), 0) AS audicnt_showcnt,
             B.genre, B.running_time
         from daily_box_office as A
-        join movie_info as B on B.movie=A.movienm
+        join movie_info as B on B.moviecd=A.moviecd
     """
     cur.execute(query)
 
