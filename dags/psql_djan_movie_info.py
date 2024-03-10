@@ -19,7 +19,7 @@ def manipulate_postgres_data():
         SELECT A.moviecd as movie_code, A.story, A.accessible, A.country, A.company, A.poster
         FROM movie_info as A
         JOIN daily_box_office as B ON A.moviecd = B.moviecd
-        ON CONFLICT (moviecd) DO NOTHING;
+        ON CONFLICT (movie_info.moviecd) DO NOTHING;
     """
     cur.execute(query)
 
