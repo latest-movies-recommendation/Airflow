@@ -25,12 +25,12 @@ default_args = {
 
 
 @dag(
-    dag_id="z_daily_box_office_elt",
+    dag_id="daily_box_office_elt",
     default_args=default_args,
     schedule_interval="0 2 * * *",
     catchup=False,
 )
-def z_daily_box_office_elt():
+def daily_box_office_elt():
     @task
     def daily_box_office_s3_to_postgres():
         s3_hook = S3Hook(aws_conn_id="aws_conn")
@@ -188,4 +188,4 @@ def z_daily_box_office_elt():
     movie >> box_office
 
 
-z_daily_box_office_elt()
+daily_box_office_elt()
