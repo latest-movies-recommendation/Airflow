@@ -24,8 +24,7 @@ def fetch_and_upload_naver_trends():
         "X-Naver-Client-Secret": client_secret,
         "Content-Type": "application/json",
     }
-    # 검색어 리스트와 날짜 설정 .
-    keywords = ["파묘", "듄2", "건국전쟁", "패스트 라이브즈", "웡카"]
+
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
     body = {
