@@ -90,6 +90,10 @@ def generate_wordcloud(**kwargs):
         logging.info(f"Found file in {local_path}!")
         logging.info(df.head())
 
+        if df.empty:
+            logging.info("리뷰가 없습니다! 워드클라우드를 생성할 수 없습니다.")
+            continue
+
         df["comment"] = df["comment"].str.replace("[^가-힣]", " ", regex=True)
         df["comment"] = df["comment"].astype(str)
         df.dropna(subset=["comment"], inplace=True)
@@ -107,7 +111,14 @@ def generate_wordcloud(**kwargs):
             .count()
             .sort_values("count", ascending=False)
         )
-        df_word = df_word[df_word["count"] >= 5]
+        if (df_word["count"] >= 15).sum() >= 5:
+            df_word = df_word[df_word["count"] >= 7]
+        elif (df_word["count"] >= 10).sum() >= 3:
+            df_word = df_word[df_word["count"] >= 3]
+        elif df_word["count"].sum() == 0:
+            continue
+        else:
+            df_word = df_word[df_word["count"] >= 2]
 
         dic_word = df_word.set_index("word").to_dict()["count"]
         wc = WordCloud(
@@ -134,6 +145,13 @@ def upload_to_s3(**kwargs):
     for code in codes:
         wordcloud_image_path = f"/tmp/{code}.png"
         processed_csv_path = f"/tmp/dict_{code}.csv"
+
+        if not os.path.exists(wordcloud_image_path):
+            # 이미지 파일이 없으면 다음 코드로 넘어감
+            print(
+                f"File {wordcloud_image_path} 파일이 존재하지 않습니다. 다음으로 넘어갑니다..."
+            )
+            continue
 
         # 이미지 업로드
         with open(wordcloud_image_path, "rb") as f:

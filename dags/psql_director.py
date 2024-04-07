@@ -65,7 +65,7 @@ dag = DAG(
     "postgres_director_table",
     default_args=default_args,
     description="A DAG to make director table in PSQL",
-    schedule_interval=timedelta(days=1),
+    schedule_interval="0 12 * * *",
 )
 
 # 작업 정의
