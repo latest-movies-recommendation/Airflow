@@ -221,6 +221,16 @@ def kofic_etl_v2():
     # 영화 코드 목록을 get_daily_box_office에서 받아 get_movie로 전달
     result = get_daily_box_office()
 
+    df_result = result.output["df"]
+    movie_cds_result = result.output["movie_cds"]
+
+    get_movie(movie_cds=movie_cds_result)
+    upload_to_postgres(df=df_result)
+
+    # df, movie_cds_result = get_daily_box_office()
+    # get_movie(movie_cds=movie_cds_result)
+    # upload_to_postgres(df)
+
 
     # movie_cds_result = get_daily_box_office()
     # get_movie(movie_cds=movie_cds_result)
